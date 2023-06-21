@@ -195,8 +195,6 @@ codegen/
 # Octave session info
 octave-workspace
 
-# data files are ignored by default
-*.mat
 
 ################ MACOS
 # General
