@@ -124,6 +124,18 @@ class BeamTyre:
         radial_force = beta*(2*(A + B)*beta**2 + A - B)/(4*beta**4+1)
         tangential_force = (A + 2*B*beta**2)/(4*beta**4+1)
         return radial_force , tangential_force
+    def get_normal_force_integral(self,A, B, end_theta):
+        '''
+        normal forces are the integral of
+        beam_solution * cos(theta)
+        '''
+        integral_at_zero = self.beta*(2*(A + B)*self.beta**2 + A - B)/\
+            (4*self.beta**4 +1)
+        radial_force = (np.exp(-self.beta*end_theta)/(4*self.beta**4+1))*\
+            np.cos(self.beta*end_theta)*(np.sin(end_theta)*(2*B*self.beta**2 + A)-\
+                                         self.beta*np.cos(end_theta)*(2*(A+B)*self.beta**2 + A + B))+\
+            np.sin(self.beta*end_theta)*()
+
     def get_initial_displacement(self, penetration, terrain_radius, theta0):
         tyre_height = self.tyre_radius - penetration
         alpha = np.arcsin((1 + tyre_height/terrain_radius)*np.sin(theta0)) - theta0

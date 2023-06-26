@@ -25,8 +25,8 @@ unsprung_mass = 50
 initial_y = tyre_radius - (sprung_mass + unsprung_mass)*10/(flx.ContinousTyre.lump_stiffness)
 # defining sim objects, all moving objects inherit from rigid body
 road = flx.Road(
-                step_width=0.01,
-                step_height=0.08,
+                step_width=0.05,
+                step_height=0.2,
                 step_profile_phase=np.pi,
                 high_res=True
                 )
@@ -53,7 +53,7 @@ data_logger : phsx.DataLogger = phsx.DataLogger()
 data_logger.add_object(tyre)
 data_logger.add_object(q_car)
 data_logger.add_object(tyre.rigid_ring)
-qmain_fig, Ax = plt.subplots(2 , 1)
+qmain_fig, Ax = plt.subplots(1 , 1)
 tyre.find_new_contacts()
 
 #for i in range(500): 
@@ -61,7 +61,7 @@ logged_data = []
 step = 0
 while tyre.states.position.x < 4:
     step += 1
-    plt.sca(Ax[0])
+    plt.sca(Ax)
     st = time.time() # For timing the main operations
     '''
     main dynamics updates, should really be done in a function
@@ -75,8 +75,8 @@ while tyre.states.position.x < 4:
     # draw results
     if np.mod(step , draw_frequency) == 0:
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
-        for ax in Ax:
-            ax.cla()
+        # for ax in Ax:
+        #     ax.cla()
         # Ax.cla()
         tyre.draw()
         q_car.draw()
@@ -85,19 +85,19 @@ while tyre.states.position.x < 4:
         plt.xlim(tyre.states.position.x+1.2*tyre.free_radius*\
                 np.array((-1., 1.)))
         plt.ylim((-0.1, q_car.states.position.y + tyre.free_radius))
-        plt.sca(Ax[1])
-        for c in tyre.contacts:
-            c.draw_pressure()
+        plt.sca(Ax)
+        # for c in tyre.contacts:
+        #     c.draw_pressure()
         plt.pause(0.001)
 
-    # if DEBUG:
-    #     while not plt.waitforbuttonpress():
-    #         pass
-    [plt.sca(ax) for ax in Ax]
-    
+    if DEBUG:
+        while not plt.waitforbuttonpress():
+            pass
+    #[plt.sca(ax) for ax in Ax]
+    Ax.cla()
 for ax in Ax:
     ax.cla()
 
-data_logger.write_to_file(file_name="/Users/mahdibabayi/beam_tyre/kerb_impact_sim/data/step_out.mat")
+data_logger.write_to_file(file_name=os.path.abspath("./kerb_impact_sim/data/step_out.mat"))
 print("SIMULTAION COMPLETE")
 
