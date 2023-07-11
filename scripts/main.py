@@ -28,8 +28,8 @@ unsprung_mass = 50
 initial_y = tyre_radius - (sprung_mass + unsprung_mass)*10/(flx.ContinousTyre.lump_stiffness)
 # defining sim objects, all moving objects inherit from rigid body
 road = flx.Road(
-                step_width=0.05,
-                step_height=0.2,
+                step_width=0.02,
+                step_height=0.08,
                 step_profile_phase=np.pi,
                 high_res=True
                 )
@@ -85,9 +85,11 @@ while tyre.states.position.x < 4:
         q_car.draw()
         plt.plot(road.x, road.y, color="brown")
         plt.gca().set_aspect('equal')
-        plt.xlim(tyre.states.position.x+1.2*tyre.free_radius*\
-                np.array((-1., 1.)))
-        plt.ylim((-0.1, q_car.states.position.y + tyre.free_radius))
+        # plt.xlim(tyre.states.position.x+1.2*tyre.free_radius*\
+        #         np.array((-1., 1.)))
+        # plt.ylim((-0.1, q_car.states.position.y + tyre.free_radius))
+        plt.xlim((road.x[0], road.x[-1]))
+        plt.ylim((np.min(road.y)-0.5, np.max(road.y) + 0.5))
         plt.sca(Ax)
         # for c in tyre.contacts:
         #     c.draw_pressure()

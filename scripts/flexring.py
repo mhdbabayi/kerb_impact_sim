@@ -162,9 +162,9 @@ class SmartRaod(Road):
 
 class ContinousTyre(phsx.RigidBody):
     beta = 5
-    lump_stiffness = 200000.
+    lump_stiffness = 500000.
     lump_damping = 500
-    element_stiffness = 300000
+    element_stiffness = 600000
     element_damping = 1000
     
     def __init__(self, initial_x, initial_y,road:Road,
