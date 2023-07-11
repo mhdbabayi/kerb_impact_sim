@@ -2,6 +2,7 @@ import flexring as flx
 import physics_engine as phsx
 import time
 import os, sys
+from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from euclid3 import Vector2
@@ -9,7 +10,9 @@ os.system("clear")
 from scipy import io
 # constants and initial values
 DEBUG = sys.gettrace()
-matlab_file_path = os.path.abspath("./kerb_impact_sim/data/beta_5.mat")
+repo_root_path = Path(__file__).resolve().parent.parent
+matlab_file_path = Path.joinpath(repo_root_path, "data", "beta_5.mat") 
+output_file_path = Path.joinpath(repo_root_path, "data", "step_out.mat")
 forward_speed_kph = 12.
 forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
@@ -98,6 +101,6 @@ while tyre.states.position.x < 4:
 for ax in Ax:
     ax.cla()
 
-data_logger.write_to_file(file_name=os.path.abspath("./kerb_impact_sim/data/step_out.mat"))
+data_logger.write_to_file(file_name=output_file_path)
 print("SIMULTAION COMPLETE")
 
