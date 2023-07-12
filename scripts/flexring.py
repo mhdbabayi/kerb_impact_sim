@@ -89,15 +89,21 @@ def interpolate_boundary_condition(centre:Vector2,
     return point1 + t*(point2 - point1), t
 
 class Road:
-    def __init__(self, step_width, step_height,step_profile_phase = np.pi, length = 5, high_res=False) -> None:
+    def __init__(self, length = 5, high_res=False) -> None:
+        self.x = None
+        self.y = None
+        self.dydx = None
+        self.ddydx = None
+        self.points = None
         self.length = length
-        self.x , self.y = self.create_profile(step_width, step_height , step_profile_phase, length)
-        self.points = [Vector2(x , y) for x, y in zip(self.x , self.y)]
         self.high_res = high_res
-        if high_res:
+        self.random_profile_seed = None
+    def setup_points(self):
+        self.points = [Vector2(x , y) for x, y in zip(self.x , self.y)]
+        if self.high_res:
             self.points = self.over_sample(self.points)
-            self.x = [p.x for p in self.points]
-            self.y = [p.y for p in self.points]
+            self.x = np.array([p.x.item() for p in self.points])
+            self.y = np.array([p.y.item() for p in self.points])
         self.dydx = np.zeros(len(self.x))
         self.ddydx = np.zeros(len(self.x))
         for i in np.arange(start=1,stop=(len(self.x))-1):
@@ -127,6 +133,33 @@ class Road:
         x_interpolator = interpolate.interp1d(x = cum_distance, y = x,kind="linear")
         y_interpolator = interpolate.interp1d(x = cum_distance, y = y , kind="linear")
         return [Vector2(x_interpolator(d) , y_interpolator(d)) for d in uniform_distance]
+    @staticmethod
+    def make_simple_road(step_width, step_height, step_profile_phase= np.pi, length = 5, high_res = False):
+        road = Road(length=length, step_width=step_width, step_height=step_height,
+                     step_profile_phase=step_profile_phase, high_res=high_res)
+        road.x , road.y = Road.create_profile(step_width, step_height , step_profile_phase, length)
+        road.setup_points()
+        return road
+    @staticmethod
+    def make_random_road(length,
+                         smallest_wave_length,
+                         frequency_scale = 1,
+                         seed= None,
+                         max_range = None):
+        road = Road(length=length, high_res=True)
+        road.x = np.arange(0 , length, 0.01)
+        road.y = np.zeros(len(road.x))
+        road.random_profile_seed = seed
+        frequencies = 2*np.pi/(np.linspace(smallest_wave_length, length, 10))
+        rng = np.random.default_rng(seed=seed)
+        weights = rng.random((len(frequencies)))/(np.log(frequency_scale*frequencies))
+        phases = rng.random((len(frequencies)))*2*np.pi
+        for idx in range(len(frequencies)):
+            road.y = road.y + weights[idx]*np.sin(road.x *frequencies[idx] + phases[idx])
+        if max_range is not None:
+            road.y = road.y *max_range/ (np.max(road.y) - np.min(road.y))
+        road.setup_points()
+        return road
 class SmartRaod(Road):
     def __init__(self, step_width, step_height,step_profile_phase = np.pi, length = 5) -> None:
         # for now we initialize like before, with only a sine bump in the middle
@@ -167,12 +200,14 @@ class ContinousTyre(phsx.RigidBody):
     element_stiffness = 600000
     element_damping = 1000
     
-    def __init__(self, initial_x, initial_y,road:Road,
+    def __init__(self, initial_x,road:Road,
                  boundary_condition_file:str,
                  free_radius = 1., node_res_deg = 1.,
                  x_speed = 0, y_speed = 0, mass = 50,
                  rigid_ring_nat_freq_hz = 100,
                  rigid_ring_damping_ratio = 0.5) -> None:
+        
+        initial_y = road.y[np.where(road.x > initial_x)[0][0]] + free_radius *0.95
         super().__init__(mass = mass, initial_x=initial_x, initial_y = initial_y,name="tyre",
                        initial_x_dot = x_speed, initial_y_dot = y_speed,constraint_type='101'
                        )

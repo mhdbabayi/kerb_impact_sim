@@ -20,21 +20,25 @@ if DEBUG:
     draw_frequency = 1
     initial_x = 2
 else:
-    draw_frequency = 50
+    draw_frequency = 10
     initial_x = 1
 
 sprung_mass = 700
 unsprung_mass = 50
 initial_y = tyre_radius - (sprung_mass + unsprung_mass)*10/(flx.ContinousTyre.lump_stiffness)
 # defining sim objects, all moving objects inherit from rigid body
-road = flx.Road(
-                step_width=0.02,
-                step_height=0.08,
-                step_profile_phase=np.pi,
-                high_res=True
-                )
+# road = flx.Road.make_simple_road(
+#                 step_width=0.02,
+#                 step_height=0.08,
+#                 step_profile_phase=np.pi,
+#                 length = 10,
+#                 high_res=True
+#                 )
+road = flx.Road.make_random_road(length=10,
+                                 smallest_wave_length=tyre_radius/3,
+                                 frequency_scale=0.2,
+                                 max_range=0.5)
 tyre = flx.ContinousTyre(initial_x=initial_x,
-                          initial_y=initial_y+0.03,
                           boundary_condition_file= matlab_file_path,
                           mass=unsprung_mass,
                           road=road,
@@ -62,7 +66,7 @@ tyre.find_new_contacts()
 #for i in range(500): 
 logged_data = []   
 step = 0
-while tyre.states.position.x < 4:
+while tyre.states.position.x < road.length:
     step += 1
     plt.sca(Ax)
     st = time.time() # For timing the main operations
