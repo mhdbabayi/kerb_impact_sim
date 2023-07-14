@@ -112,30 +112,23 @@ class BeamTyre:
         w0 = self.get_initial_displacement(penetration, terrain_radius, theta0)
         dw0 = self.get_initial_slope(penetration, terrain_radius, theta0, w0)
         return self.profile_theta + theta0, self.beam_solution(A = w0 , B = w0 + dw0/self.beta)
-    def force_integral(beta, w0, dw0):
+    def get_normal_force_integral(self,w0, dw0, theta_end = None):
         # radial force: 
         # integral exp(-beta*theta)*(A*cos(beta*theta) + B*sin(beta*theta))*cos(theta)
-        # theta from 0 to infinity with a positive beta
-        # tangential force: 
-        #integral exp(-beta*theta)*(A*cos(beta*theta) + B*sin(beta*theta))*sin(theta)
-        # theta from 0 to infinity with a positive beta
+        # theta from 0 to theta_end. if theta_end is None, it's infinity
+        beta = self.beta
         A = w0
         B = dw0/beta + w0
-        radial_force = beta*(2*(A + B)*beta**2 + A - B)/(4*beta**4+1)
-        tangential_force = (A + 2*B*beta**2)/(4*beta**4+1)
-        return radial_force , tangential_force
-    def get_normal_force_integral(self,A, B, end_theta):
-        '''
-        normal forces are the integral of
-        beam_solution * cos(theta)
-        '''
-        integral_at_zero = self.beta*(2*(A + B)*self.beta**2 + A - B)/\
-            (4*self.beta**4 +1)
-        radial_force = (np.exp(-self.beta*end_theta)/(4*self.beta**4+1))*\
-            np.cos(self.beta*end_theta)*(np.sin(end_theta)*(2*B*self.beta**2 + A)-\
-                                         self.beta*np.cos(end_theta)*(2*(A+B)*self.beta**2 + A + B))+\
-            np.sin(self.beta*end_theta)*()
-
+        integral_at_zero = beta*(2*(A + B)*beta**2 + A - B)/\
+            (4*beta**4 +1)
+        if theta_end is None:
+            return integral_at_zero
+        integral_at_theta_end = (np.exp(-beta*theta_end)/(4*beta**4+1))*\
+            np.cos(beta*theta_end)*(np.sin(theta_end)*(2*B*beta**2 + A)-\
+                                         beta*np.cos(theta_end)*(2*(A+B)*beta**2 + A + B))+\
+            np.sin(beta*theta_end)*(beta*np.cos(theta_end)* (2*(A - B)*beta**2 + A + B) +\
+                                    np.sin(theta_end)*(-2*beta**2 + A))
+        return integral_at_theta_end - integral_at_zero
     def get_initial_displacement(self, penetration, terrain_radius, theta0):
         tyre_height = self.tyre_radius - penetration
         alpha = np.arcsin((1 + tyre_height/terrain_radius)*np.sin(theta0)) - theta0

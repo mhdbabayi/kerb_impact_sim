@@ -18,26 +18,26 @@ forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
 if DEBUG:
     draw_frequency = 1
-    initial_x = 2
+    initial_x = 4.6
 else:
     draw_frequency = 10
-    initial_x = 1
-
+    initial_x = 4
 sprung_mass = 700
 unsprung_mass = 50
 initial_y = tyre_radius - (sprung_mass + unsprung_mass)*10/(flx.ContinousTyre.lump_stiffness)
 # defining sim objects, all moving objects inherit from rigid body
-# road = flx.Road.make_simple_road(
-#                 step_width=0.02,
-#                 step_height=0.08,
-#                 step_profile_phase=np.pi,
-#                 length = 10,
-#                 high_res=True
-#                 )
-road = flx.Road.make_random_road(length=10,
+step_road: flx.Road = flx.Road.make_simple_road(
+                step_width=0.02,
+                step_height=0.08,
+                step_profile_phase=np.pi,
+                length = 10,
+                high_res=True
+                )
+random_road :flx.Road = flx.Road.make_random_road(length=10,
                                  smallest_wave_length=tyre_radius/3,
-                                 frequency_scale=0.2,
+                                 frequency_scale=2,
                                  max_range=0.5)
+road = random_road
 tyre = flx.ContinousTyre(initial_x=initial_x,
                           boundary_condition_file= matlab_file_path,
                           mass=unsprung_mass,
@@ -62,11 +62,12 @@ data_logger.add_object(q_car)
 data_logger.add_object(tyre.rigid_ring)
 qmain_fig, Ax = plt.subplots(1 , 1)
 tyre.find_new_contacts()
-
 #for i in range(500): 
 logged_data = []   
 step = 0
-while tyre.states.position.x < road.length:
+current_ylim = (np.min(road.y) - 0.5 , np.max(road.y) + 0.5)
+current_xlim = (road.x[0] , road.x[-1])
+while tyre.states.position.x < road.length-2:
     step += 1
     plt.sca(Ax)
     st = time.time() # For timing the main operations
@@ -77,8 +78,8 @@ while tyre.states.position.x < road.length:
     '''
     q_car.update_states()
     tyre.update_states(-(q_car.spring_force + q_car.damper_force))
-    if len(tyre.contacts)>0:
-        tyre.get_full_profile()
+    # if len(tyre.contacts)>0:
+    #     tyre.get_full_profile()
     # draw results
     if np.mod(step , draw_frequency) == 0:
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
@@ -89,24 +90,21 @@ while tyre.states.position.x < road.length:
         q_car.draw()
         plt.plot(road.x, road.y, color="brown")
         plt.gca().set_aspect('equal')
-        # plt.xlim(tyre.states.position.x+1.2*tyre.free_radius*\
-        #         np.array((-1., 1.)))
-        # plt.ylim((-0.1, q_car.states.position.y + tyre.free_radius))
-        plt.xlim((road.x[0], road.x[-1]))
-        plt.ylim((np.min(road.y)-0.5, np.max(road.y) + 0.5))
         plt.sca(Ax)
         # for c in tyre.contacts:
         #     c.draw_pressure()
+        plt.xlim(current_xlim)
+        plt.ylim(current_ylim)
         plt.pause(0.001)
+        current_ylim = plt.gca().get_ylim()
+        current_xlim = plt.gca().get_xlim()
 
     if DEBUG:
         while not plt.waitforbuttonpress():
             pass
-    #[plt.sca(ax) for ax in Ax]
+        current_ylim = plt.gca().get_ylim()
+        current_xlim = plt.gca().get_xlim()
     Ax.cla()
-for ax in Ax:
-    ax.cla()
-
 data_logger.write_to_file(file_name=output_file_path)
 print("SIMULTAION COMPLETE")
 
