@@ -159,15 +159,11 @@ class Road:
             road.y = road.y *max_range/ (np.max(road.y) - np.min(road.y))
         road.setup_points()
         return road
-class SmartRaod(Road):
-    def __init__(self, step_width, step_height,step_profile_phase = np.pi, length = 5) -> None:
-        # for now we initialize like before, with only a sine bump in the middle
-        super().__init__(step_width, step_height,step_profile_phase, length)
-        self.over_sampled_points = self.over_sample(self.points)
-        self.node_list = []
-
+    def make_smart(self):
+        pass
+        
     def initialize_nodes(self):
-        self.node_list = [SmartRaod.Node(parent_road=self,
+        self.node_list = [Road.Node(parent_road=self,
                                          position=self.points[idx],
                                          dydx=self.dydx[idx],
                                          ddydx=self.ddydx[idx]) for idx in range(len(self.points))]
@@ -178,19 +174,25 @@ class SmartRaod(Road):
             self.node_list[i+1].prev = self.node_list[i]
         
     class Node():
+        # section is the node in each section with maximum positive curvature
+        # this is later used for contact detection and preprocessing
         def __init__(self,
                      parent_road,
-                     position:Vector2,
-                     dydx:float,
-                     ddydx:float,
-                     next=None,
-                     prev=None) -> None:
-            self.parent_road = parent_road
-            self.posistion:Vector2 = position
-            self.dydx = dydx
-            self.ddydx = ddydx
-            self.next:SmartRaod.Node = next
-            self.prev:SmartRaod.Node = prev
+                     idx,
+                     tangent_offset = 5
+                     prev= None,
+                     next = None) -> None:
+            self.parent_road:Road = parent_road
+            self.posistion:Vector2 = self.parent_road.points[idx]
+            self.tangent = (self.parent_road.points[idx+ tangent_offset] -\
+                             self.parent_road.points[idx - tangent_offset]).normalized()
+            self.curvature = ut.get_equivalent_circle(p1 = self.parent_road.points[idx - tangent_offset],
+                                                      p0 = self.posistion,
+                                                      p2 = self.parent_road.points[idx + tangent_offset])
+            self.next:Road.Node = next
+            self.prev:Road.Node = prev
+            self.section_peak:Road.Node = section_peak
+            self.idx = idx
 
 class ContinousTyre(phsx.RigidBody):
     beta = 5
@@ -295,14 +297,10 @@ class ContinousTyre(phsx.RigidBody):
                             np.rad2deg(self.contacts[-1].aft_theta_abs_f()[0])+360,
                             1))
         print("**************")
-
-
-
     @dataclass
     class Collision:
         aft_point:Vector2
         fore_point:Vector2
-        road_idx:int
         def __init__(self, start, end, start_road_idx, end_road_idx):
             self.aft_point = start
             self.fore_point = end

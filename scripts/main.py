@@ -34,7 +34,7 @@ step_road: flx.Road = flx.Road.make_simple_road(
                 high_res=True
                 )
 random_road :flx.Road = flx.Road.make_random_road(length=10,
-                                 smallest_wave_length=tyre_radius/3,
+                                 smallest_wave_length=tyre_radius/10,
                                  frequency_scale=2,
                                  max_range=0.5)
 road = random_road
