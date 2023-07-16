@@ -1,4 +1,3 @@
-from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -89,15 +88,19 @@ def interpolate_boundary_condition(centre:Vector2,
     return point1 + t*(point2 - point1), t
 
 class Road:
+    filter_window_size = 20  
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
         self.dydx = None
         self.ddydx = None
-        self.points = None
+        self.points:list[Vector2] = None
         self.length = length
         self.high_res = high_res
         self.random_profile_seed = None
+        self.start_node:Road.Node = None
+        self.start_section : Road.Section = None
+
     def setup_points(self):
         self.points = [Vector2(x , y) for x, y in zip(self.x , self.y)]
         if self.high_res:
@@ -160,39 +163,80 @@ class Road:
         road.setup_points()
         return road
     def make_smart(self):
-        pass
-        
-    def initialize_nodes(self):
-        self.node_list = [Road.Node(parent_road=self,
-                                         position=self.points[idx],
-                                         dydx=self.dydx[idx],
-                                         ddydx=self.ddydx[idx]) for idx in range(len(self.points))]
-        self.node_list[0].next = self.node_list[1]
-        self.node_list[-1].prev = self.node_list[-2]
-        for i in range(len(self.node_list)-2):
-            self.node_list[i+1].next = self.node_list[i+2]
-            self.node_list[i+1].prev = self.node_list[i]
+        self.start_node = Road.Node(idx=0, road = self)
+        end_node = self.start_node
+        while end_node.make_next() is not None:
+            end_node = end_node.next
+        self.start_section = Road.Section(road = self, number=0, start_node=self.start_node)
+        end_section = self.start_section
+        while end_section.make_next() is not None:
+            end_section = end_section.next
         
     class Node():
-        # section is the node in each section with maximum positive curvature
-        # this is later used for contact detection and preprocessing
         def __init__(self,
-                     parent_road,
                      idx,
-                     tangent_offset = 5
-                     prev= None,
-                     next = None) -> None:
-            self.parent_road:Road = parent_road
-            self.posistion:Vector2 = self.parent_road.points[idx]
-            self.tangent = (self.parent_road.points[idx+ tangent_offset] -\
-                             self.parent_road.points[idx - tangent_offset]).normalized()
-            self.curvature = ut.get_equivalent_circle(p1 = self.parent_road.points[idx - tangent_offset],
-                                                      p0 = self.posistion,
-                                                      p2 = self.parent_road.points[idx + tangent_offset])
-            self.next:Road.Node = next
+                     road,
+                     prev= None) -> None:
+            self.road:Road = road
+            self.section:Road.Section = None
+            self.posistion:Vector2 = road.points[idx]
             self.prev:Road.Node = prev
-            self.section_peak:Road.Node = section_peak
+            self.next:Road.Node = None
             self.idx = idx
+            if idx > self.road.filter_window_size and idx < (len(self.road.points) - self.road.filter_window_size):
+                self.tangent = (self.road.points[idx+ self.road.filter_window_size] -\
+                                self.road.points[idx - self.road.filter_window_size]).normalized()
+                self.curvature = ut.get_curvature_3point(prev = self.road.points[idx - self.road.filter_window_size],
+                                                        target= self.posistion,
+                                                        next = self.road.points[idx + self.road.filter_window_size])
+            else:
+                self.tangent = Vector2(0 , 0)
+                self.curvature = 0
+        def make_next(self):
+            if self.next is not None:
+                return self.next
+            if self.idx < len(self.road.points) -1:
+                self.next = Road.Node(idx = self.idx+1, road = self.road, prev=self)
+                return self.next
+            return None
+            
+    class Section():
+        def __init__(self,road,number, start_node, prev= None) -> None:
+            self.road:Road = road
+            self.number = number
+            self.prev:Road.Section = prev
+            self.next:Road.Section = None
+            self.start_node:Road.Node = start_node
+            self.max_curvature_mag = np.abs(start_node.curvature)
+            self.end_node:Road.Node = start_node 
+            self.peak_node:Road.Node = start_node
+            self.curvature_sign = np.sign(start_node.curvature)
+            while np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature):
+                self.end_node.section = self
+                if np.abs(self.end_node.curvature) > self.max_curvature_mag:
+                    self.peak_node = self.end_node
+                    self.max_curvature_mag = np.abs(self.end_node.curvature)
+                self.end_node = self.end_node.next
+                if self.end_node.next is None:
+                    break
+        def make_next(self):
+            if self.next is not None:
+                return self.next    
+            elif self.end_node.next is not None:
+                self.next = Road.Section(road = self.road, number=self.number+1, start_node=self.end_node.next,
+                                            prev=self)
+                return self.next
+            else:
+                return None
+        def draw(self):
+            if self.curvature_sign > 0:
+                color = "red"
+            else:
+                color = "black"
+            points = np.array(self.road.points[self.start_node.idx:self.end_node.idx])
+            plt.plot(points[: , 0] , points[: , 1] , color= color)
+            plt.plot(self.peak_node.posistion.x , self.peak_node.posistion.y , "m*")
+
 
 class ContinousTyre(phsx.RigidBody):
     beta = 5
@@ -214,8 +258,8 @@ class ContinousTyre(phsx.RigidBody):
                        )
         self.road = road
         self.free_radius = free_radius
-        self.collisions = []
-        self.contacts = []
+        self.collisions:list[ContinousTyre.Collision] = []
+        self.contacts:list[ContinousTyre.Contact] = []
         self.total_contact_force = Vector2(0 , 0)
         # nodes are only used for visualisation
         self.node_angles = np.deg2rad(np.linspace(0 , 360, 361)[0:-1])

@@ -225,4 +225,14 @@ def get_circle_tangent_2points(tangent:Vector2,
     curvature = np.abs(2*(p1-p0).dot(normal)/(p1-p0).magnitude_squared())
     curvature_sign = np.sign(tangent.dot(p1 - p0))
     return curvature_sign * curvature
-
+def get_curvature_3point(prev:Vector2, target:Vector2, next:Vector2):
+    # return approximate signed curvature of the circle passing all three points
+    # curvature is approximated as the angle between v1 and v2 divided by arc length
+    # arc approximated by 0.5(v1.mag() + v2.mag())
+    # sign is positive if v2 is on the left of v1
+    v1 = target - prev 
+    v2 = next - target
+    cross_product = v1.x*v2.y - v2.x*v1.y
+    return np.arcsin(cross_product/(v1.magnitude()*v2.magnitude()))/ (0.5*(v1.magnitude() + v2.magnitude()))
+def get_rotation_sign(v1:Vector2, v2:Vector2):
+    return np.sign(v1.x*v2.y - v1.y*v2.x)
