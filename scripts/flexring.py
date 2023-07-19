@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import physics_engine as phsx
@@ -272,6 +273,7 @@ class ContinousTyre(phsx.RigidBody):
                                 tyre_radius=self.free_radius,
                                 boundary_theta_map_file=boundary_condition_file)
     def find_new_collisions(self, start_idx=0):
+        t0 = time.time()
         road_idx = start_idx
         while self.road.points[road_idx].x < self.states.position.x - self.free_radius:
                 road_idx += 1
@@ -296,7 +298,8 @@ class ContinousTyre(phsx.RigidBody):
                         if T is not None:
                             self.collisions[-1].fore_point = T[1]
                             self.collisions[-1].end_road_idx = road_idx            
-            road_idx +=1           
+            road_idx +=1 
+        print(f"\t{(time.time()-t0)*1000:.1f} to find collisions")          
     def find_new_contacts(self, start_idx = 0):
         self.find_new_collisions(start_idx)
         for c in self.collisions:

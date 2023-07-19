@@ -34,7 +34,7 @@ step_road: flx.Road = flx.Road.make_simple_road(
                 high_res=True
                 )
 random_road :flx.Road = flx.Road.make_random_road(length=10,
-                                 smallest_wave_length=tyre_radius/10,
+                                 smallest_wave_length=tyre_radius,
                                  frequency_scale=2,
                                  max_range=0.5)
 road = random_road
@@ -91,7 +91,7 @@ while tyre.states.position.x < road.length-2:
         q_car.draw()
         plt.plot(road.x, road.y, color="brown")
         s = road.start_section
-        for idx in range(100):
+        while s.next is not None:
             s.draw()
             s = s.next
         plt.gca().set_aspect('equal')
