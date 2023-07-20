@@ -37,8 +37,9 @@ random_road :flx.Road = flx.Road.make_random_road(length=10,
                                  smallest_wave_length=tyre_radius,
                                  frequency_scale=2,
                                  max_range=0.5)
-road = random_road
-road.make_smart()
+fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
+                                                  step_size = 0.01)
+road = fnt_road
 tyre = flx.ContinousTyre(initial_x=initial_x,
                           boundary_condition_file= matlab_file_path,
                           mass=unsprung_mass,
@@ -87,13 +88,9 @@ while tyre.states.position.x < road.length-2:
         # for ax in Ax:
         #     ax.cla()
         # Ax.cla()
+        road.draw()
         tyre.draw()
         q_car.draw()
-        plt.plot(road.x, road.y, color="brown")
-        s = road.start_section
-        while s.next is not None:
-            s.draw()
-            s = s.next
         plt.gca().set_aspect('equal')
         plt.sca(Ax)
         # for c in tyre.contacts:

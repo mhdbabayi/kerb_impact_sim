@@ -9,6 +9,7 @@ import math_utils as ut
 from scipy import interpolate
 from scipy import io
 import bisect
+from pathlib import Path
 '''
 sign convention: 
 Tyre node zero is at the top and the nodes go counter-clockwise
@@ -89,7 +90,7 @@ def interpolate_boundary_condition(centre:Vector2,
     return point1 + t*(point2 - point1), t
 
 class Road:
-    filter_window_size = 20  
+    filter_window_size = 200  
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
@@ -101,7 +102,6 @@ class Road:
         self.random_profile_seed = None
         self.start_node:Road.Node = None
         self.start_section : Road.Section = None
-
     def setup_points(self):
         self.points = [Vector2(x , y) for x, y in zip(self.x , self.y)]
         if self.high_res:
@@ -163,6 +163,27 @@ class Road:
             road.y = road.y *max_range/ (np.max(road.y) - np.min(road.y))
         road.setup_points()
         return road
+    @staticmethod
+    def make_road_from_file(file_name, step_size=0.001):
+        with open(file_name) as f:
+            point_list = np.array([[float(f) for f in line.split(",")] for line in f])
+        x , y = Road.under_sample(x = point_list[: , 0] , z=point_list[: , 2] , x_step=0.001)
+        road = Road(length=x[-1], high_res=False)
+        road.x = x
+        road.y = y
+        road.setup_points()
+        road.make_smart()
+        return road    
+    @staticmethod
+    def under_sample(x: np.array, z:np.array, x_step):
+        # under sample x and z by picking a mean z in every x bin with width x_step
+        xbins = np.digitize(x , np.arange(start=x[0], stop=x[-1], step=x_step))
+        out_z = []
+        out_x = []
+        for idx,x_sample in enumerate(np.arange(start=x[0], stop=x[-1], step = x_step)):
+            out_z.append(np.mean(z[xbins == idx+1]))
+            out_x.append(x_sample)
+        return np.array(out_x)[~np.isnan(out_z)] , np.array(out_z)[~np.isnan(out_z)]
     def make_smart(self):
         self.start_node = Road.Node(idx=0, road = self)
         end_node = self.start_node
@@ -172,7 +193,18 @@ class Road:
         end_section = self.start_section
         while end_section.make_next() is not None:
             end_section = end_section.next
+        s = self.start_section
+        while s is not None:
+            if s.end_node is s.start_node:
+                s.remove()
+            s = s.next
         
+    def draw(self):
+        plt.plot(self.x , self.y , color="brown")
+        s = self.start_section
+        while s is not None:
+            s.draw()
+            s = s.next
     class Node():
         def __init__(self,
                      idx,
@@ -235,9 +267,17 @@ class Road:
             else:
                 color = "black"
             points = np.array(self.road.points[self.start_node.idx:self.end_node.idx])
-            plt.plot(points[: , 0] , points[: , 1] , color= color)
-            plt.plot(self.peak_node.posistion.x , self.peak_node.posistion.y , "m*")
-
+            if len(points>0):
+                plt.plot(points[: , 0] , points[: , 1] , color= color)
+                plt.plot(self.peak_node.posistion.x , self.peak_node.posistion.y , "m*")
+        def remove(self):
+            if self.next is not None:
+                self.next.start_node = self.end_node
+                self.next.number = self.number
+                self.next.prev = self.prev
+            if self.prev is not None:
+                self.prev.end_node = self.start_node
+                self.prev.next = self.next
 
 class ContinousTyre(phsx.RigidBody):
     beta = 5
@@ -329,7 +369,7 @@ class ContinousTyre(phsx.RigidBody):
         if len(self.contacts) == 0:
             start_idx = 0
         else:
-            start_idx=self.contacts[-1].collision.end_road_idx+5
+            start_idx=self.contacts[-1].centre_point_idx + 10
         self.find_new_contacts(start_idx)
         self.contacts = [c for c in self.contacts if c.update() is not None]    
     def get_full_profile(self):
