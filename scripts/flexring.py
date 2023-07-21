@@ -655,9 +655,8 @@ class ContinousTyre(phsx.RigidBody):
                      node_list:list[Road.Node],
                      ) -> None:
             self.tyre = tyre
-            self.node_list: list[Road.Node] = node_list
-            
-
+            self.node_list: list[Road.Node] = sorted(node_list,
+                                                      key=lambda node:(node.position - tyre.states.position).magnitude_squared())
             
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,

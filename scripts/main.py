@@ -40,7 +40,7 @@ random_road :flx.Road = flx.Road.make_random_road(length=10,
                                  max_range=0.5)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
                                                   step_size = 0.005)
-road = step_road
+road = fnt_road
 tyre = flx.ContinousTyre(
                         initial_x= initial_x,
                         boundary_condition_file= matlab_file_path,
