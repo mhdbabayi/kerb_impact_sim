@@ -40,9 +40,9 @@ random_road :flx.Road = flx.Road.make_random_road(length=10,
                                  max_range=0.5)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
                                                   step_size = 0.005)
-road = fnt_road
+road = step_road
 tyre = flx.ContinousTyre(
-                        initial_x=11.6,
+                        initial_x= initial_x,
                         boundary_condition_file= matlab_file_path,
                         mass=unsprung_mass,
                         road=road,
@@ -90,7 +90,7 @@ while tyre.states.position.x < road.length-2:
     if np.mod(step , draw_frequency) == 0:
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
         for c in contact_centres:
-            plt.plot(c.position.x , c.position.y , "bo")
+            phsx.DynamicObject.plot(c.position.x , c.position.y , "bo")
         #road.draw()
         tyre.draw()
         q_car.draw()

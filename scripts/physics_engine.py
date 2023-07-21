@@ -31,9 +31,11 @@ class DynamicObject:
     def add_patch(patch):
         DynamicObject.graphic_objects.append(plt.gca().add_patch(patch))
     def clear_plot():
-        for g in DynamicObject.graphic_objects:
-            g.remove()
-            DynamicObject.graphic_objects.remove(g)
+        while len(DynamicObject.graphic_objects) > 0 :
+            g = DynamicObject.graphic_objects.pop()
+            plt.gca().get_children()[plt.gca().get_children().index(g)].remove()
+            del g
+        plt.draw()
 class RigidBody(DynamicObject):
     def __init__(self,
                 mass,

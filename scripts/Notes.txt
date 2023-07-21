@@ -17,3 +17,12 @@ Smart contact detection:
             QUESTION: how do you deal with convext and concave sections. Does it make a difference if the starting section is of either constraint_type
             ANSWER: For now let's check all consecutive sections we'll see about concave sections later
             QUESTION: How about interfering contacts. All the points inside the deflected section ofthe previous contact
+Concerns about the tread layer:
+    Kim uses the tread layer as a buffer between the belt and the ground. We're just merrily ignoring it
+    The thing about the tread element is outside the contact region it's uncompressed, so it can be ignored
+    so whatever we're doing outside of the contact is find, same as in tire mechanics. in the contact section though, 
+    Kim solves a system of equations which makes sure there's force balance between the tread elements and the belt layer
+    which means iterative. We're only doing it for a circle, so we should be able to find a closed form formula for it
+    Let's go with what we have for now, do the deflection based on the belt, in the contact section, 
+    "FIND THE DISTRIBUTION BASED ON THE DEFLECTION OF THE BELT, SO AT THE BOUNDARIES IT GOES DOWN TO 0",
+    *Solve the differential equation for the radial beam later             

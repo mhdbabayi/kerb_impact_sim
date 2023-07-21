@@ -142,6 +142,7 @@ class Road:
         road = Road(length=length,high_res=high_res)
         road.x , road.y = Road.create_profile(step_width, step_height , step_profile_phase, length)
         road.setup_points()
+        road.make_smart()
         return road
     @staticmethod
     def make_random_road(length,
@@ -162,6 +163,7 @@ class Road:
         if max_range is not None:
             road.y = road.y *max_range/ (np.max(road.y) - np.min(road.y))
         road.setup_points()
+        road.make_smart()
         return road
     @staticmethod
     def make_road_from_file(file_name, step_size=0.001):
@@ -647,6 +649,16 @@ class ContinousTyre(phsx.RigidBody):
             if self.prev_whole_theta_profile is None:
                 self.prev_whole_deformation_profile = self.whole_deformation_profile
                 self.prev_whole_theta_profile = self.whole_theta_profile - self.centre_migration_theta
+    class MultiContact:
+        def __init__(self,
+                     tyre, 
+                     node_list:list[Road.Node],
+                     ) -> None:
+            self.tyre = tyre
+            self.node_list: list[Road.Node] = node_list
+            
+
+            
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,
                      natural_freq_hz= 100,
