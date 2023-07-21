@@ -3,6 +3,8 @@ from enum import Enum
 from euclid3 import Vector2
 from dataclasses import dataclass
 from scipy import io
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 class ConstraintType(Enum):
     '''
     Name of constraint referes to the axis that's not updated 
@@ -17,10 +19,21 @@ class DynamicObject:
     simParameters = {
     "universal_time" : 0,
     "time_step" : 0.001}
+    graphic_objects = []
     def initialize(self):
         pass
     def iterate(self):
         pass
+    @staticmethod
+    def plot(x , y, *args, **kwargs):
+        DynamicObject.graphic_objects += plt.plot(x , y,*args, **kwargs )
+    @staticmethod
+    def add_patch(patch):
+        DynamicObject.graphic_objects.append(plt.gca().add_patch(patch))
+    def clear_plot():
+        for g in DynamicObject.graphic_objects:
+            g.remove()
+            DynamicObject.graphic_objects.remove(g)
 class RigidBody(DynamicObject):
     def __init__(self,
                 mass,

@@ -9,6 +9,7 @@ from euclid3 import Vector2
 os.system("clear")
 from scipy import io
 # constants and initial values
+graphic_objects = {"static":[], "dynamic":[]}
 DEBUG = sys.gettrace()
 repo_root_path = Path(__file__).resolve().parent.parent
 matlab_file_path = Path.joinpath(repo_root_path, "data", "beta_5.mat") 
@@ -70,6 +71,7 @@ logged_data = []
 step = 0
 current_ylim = (np.min(road.y) - 0.5 , np.max(road.y) + 0.5)
 current_xlim = (road.x[0] , road.x[-1])
+road.draw()
 while tyre.states.position.x < road.length-2:
     step += 1
     plt.sca(Ax)
@@ -89,7 +91,7 @@ while tyre.states.position.x < road.length-2:
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
         for c in contact_centres:
             plt.plot(c.position.x , c.position.y , "bo")
-        road.draw()
+        #road.draw()
         tyre.draw()
         q_car.draw()
         plt.gca().set_aspect('equal')
@@ -107,7 +109,8 @@ while tyre.states.position.x < road.length-2:
             pass
         current_ylim = plt.gca().get_ylim()
         current_xlim = plt.gca().get_xlim()
-    Ax.cla()
+    #Ax.cla()
+    phsx.DynamicObject.clear_plot()
 data_logger.write_to_file(file_name=output_file_path)
 print("SIMULTAION COMPLETE")
 

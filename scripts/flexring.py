@@ -295,9 +295,6 @@ class Road:
                 return min_node, None
             return min_node, self.next
 
-
-
-
 class ContinousTyre(phsx.RigidBody):
     beta = 5
     lump_stiffness = 500000.
@@ -378,7 +375,7 @@ class ContinousTyre(phsx.RigidBody):
         
     def draw(self):
         circle_obj = patches.Circle(self.states.position, self.free_radius, linewidth=1,fill=False)
-        plt.gca().add_patch(circle_obj)
+        phsx.DynamicObject.add_patch(circle_obj)
         for c in self.contacts:
             c.draw()
         self.rigid_ring.draw()
@@ -483,19 +480,23 @@ class ContinousTyre(phsx.RigidBody):
                 return NotImplemented
             return self.centre_point_angle_f() < other.centre_point_angle_f()
         def draw(self):
-            plt.plot(self.centre_point_f().x , self.centre_point_f().y , "o")
+            graphic_objects = []
+            graphic_objects.append(
+                phsx.DynamicObject.plot(self.centre_point_f().x , self.centre_point_f().y , marker ="o")
+            )
             self.draw_terrain_circles()
             self.draw_envelop()
         def draw_pressure(self):
-            # plt.plot(np.rad2deg(self.prev_whole_theta_profile),
+            # phsx.DynamicObject.plot(np.rad2deg(self.prev_whole_theta_profile),
             #          self.prev_whole_deformation_profile*1000 ,"r--")
-            # plt.plot(np.rad2deg(self.whole_deformation_profile),
+            # phsx.DynamicObject.plot(np.rad2deg(self.whole_deformation_profile),
             #          self.whole_deformation_profile*1000 , 'b--')
             # plt.xlabel("theta deg") 
             # plt.ylabel("sidewall element deformation mm")
-            plt.plot(self.tyre.data_logger.data_dict["tyre"]["position"]["x"],
+            phsx.DynamicObject.plot(self.tyre.data_logger.data_dict["tyre"]["position"]["x"],
             self.tyre.data_logger.data_dict["tyre"]["force"]["y"])          
         def draw_terrain_circles(self):
+            graphic_objects = []
             fore_circle = patches.Wedge(center=self.fore_circle_centre,
                                         r=self.fore_circle_radius,
                                         theta1= np.rad2deg(self.centre_point_angle_f()),
@@ -515,16 +516,23 @@ class ContinousTyre(phsx.RigidBody):
                                        lw =2,
                                        color = "magenta",
                                        linestyle = "--")
-            plt.gca().add_patch(fore_circle)
-            plt.gca().add_patch(aft_circle)
+            graphic_objects.append(
+                phsx.DynamicObject.add_patch(fore_circle)
+            )
+            graphic_objects.append(
+                phsx.DynamicObject.add_patch(aft_circle)
+            )
+            return graphic_objects
         def draw_envelop(self):
+            graphic_objects = []
             x = [self.tyre.states.position.x +\
                   (self.tyre.free_radius - w)*np.cos(t) for
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
             y = [self.tyre.states.position.y +\
                   (self.tyre.free_radius - w)*np.sin(t) for
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
-            plt.plot(x , y , "green")
+            phsx.DynamicObject.plot(x , y , color = "green")
+            return graphic_objects
         def set_equivalent_circles(self):
             # TODO sign of tangent input acts strange
             fore_curvature = ut.get_circle_tangent_2points(tangent=-self.normal_vector_f().cross(),
@@ -667,7 +675,7 @@ class ContinousTyre(phsx.RigidBody):
                                    fill = False,
                                    lw= 2, 
                                    color = "red")
-            plt.gca().add_patch(patch)
+            phsx.DynamicObject.add_patch(patch)
 class SprungMass(phsx.RigidBody):
     def __init__(self,
                 tyre_inst:ContinousTyre,
@@ -702,4 +710,4 @@ class SprungMass(phsx.RigidBody):
         width = self.tyre_inst.free_radius * 2
         rect = patches.Rectangle((self.states.position.x-width/2, self.states.position.y-width/2),
                                  width=width, height=width/2)
-        plt.gca().add_patch(rect)
+        phsx.DynamicObject.add_patch(rect)
