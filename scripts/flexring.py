@@ -90,7 +90,7 @@ def interpolate_boundary_condition(centre:Vector2,
     return point1 + t*(point2 - point1), t
 
 class Road:
-    filter_window_size = 200  
+    filter_window_size_global = 20 
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
@@ -167,7 +167,7 @@ class Road:
     def make_road_from_file(file_name, step_size=0.001):
         with open(file_name) as f:
             point_list = np.array([[float(f) for f in line.split(",")] for line in f])
-        x , y = Road.under_sample(x = point_list[: , 0] , z=point_list[: , 2] , x_step=0.001)
+        x , y = Road.under_sample(x = point_list[: , 0] , z=point_list[: , 2] , x_step=step_size)
         road = Road(length=x[-1], high_res=False)
         road.x = x
         road.y = y
@@ -212,16 +212,16 @@ class Road:
                      prev= None) -> None:
             self.road:Road = road
             self.section:Road.Section = None
-            self.posistion:Vector2 = road.points[idx]
+            self.position:Vector2 = road.points[idx]
             self.prev:Road.Node = prev
             self.next:Road.Node = None
             self.idx = idx
-            if idx > self.road.filter_window_size and idx < (len(self.road.points) - self.road.filter_window_size):
-                self.tangent = (self.road.points[idx+ self.road.filter_window_size] -\
-                                self.road.points[idx - self.road.filter_window_size]).normalized()
-                self.curvature = ut.get_curvature_3point(prev = self.road.points[idx - self.road.filter_window_size],
-                                                        target= self.posistion,
-                                                        next = self.road.points[idx + self.road.filter_window_size])
+            if idx > self.road.filter_window_size_global and idx < (len(self.road.points) - self.road.filter_window_size_global):
+                self.tangent = (self.road.points[idx+ self.road.filter_window_size_global] -\
+                                self.road.points[idx - self.road.filter_window_size_global]).normalized()
+                self.curvature = ut.get_curvature_3point(prev = self.road.points[idx - self.road.filter_window_size_global],
+                                                        target= self.position,
+                                                        next = self.road.points[idx + self.road.filter_window_size_global])
             else:
                 self.tangent = Vector2(0 , 0)
                 self.curvature = 0
@@ -269,7 +269,7 @@ class Road:
             points = np.array(self.road.points[self.start_node.idx:self.end_node.idx])
             if len(points>0):
                 plt.plot(points[: , 0] , points[: , 1] , color= color)
-                plt.plot(self.peak_node.posistion.x , self.peak_node.posistion.y , "m*")
+                plt.plot(self.peak_node.position.x , self.peak_node.position.y , "m*")
         def remove(self):
             if self.next is not None:
                 self.next.start_node = self.end_node
@@ -278,6 +278,25 @@ class Road:
             if self.prev is not None:
                 self.prev.end_node = self.start_node
                 self.prev.next = self.next
+        def check_contact_initial(self, tyre):
+            # returns closest node in segment and the next segment if it's still in the bounding box
+            if self.curvature_sign >0:
+                return None, self.next
+            min_node:Road.Node = None
+            current_node = self.start_node
+            min_distance_sqr = tyre.free_radius**2
+            while current_node is not self.end_node:
+                if (current_distance_sqr:=(current_node.position - tyre.states.position).magnitude_squared())\
+                      < min_distance_sqr:
+                    min_distance_sqr = current_distance_sqr
+                    min_node = current_node
+                current_node = current_node.next
+            if  self.end_node.position.x > (tyre.states.position.x + tyre.free_radius):
+                return min_node, None
+            return min_node, self.next
+
+
+
 
 class ContinousTyre(phsx.RigidBody):
     beta = 5
@@ -346,6 +365,17 @@ class ContinousTyre(phsx.RigidBody):
             #self.contacts.append(ContinousTyre.Contact(self, c))
             bisect.insort(self.contacts, ContinousTyre.Contact(self, c))
             self.collisions.remove(c)
+    def initialize_contact(self):
+        section:Road.Section = self.road.start_section
+        while section.end_node.position.x < (self.states.position.x - self.free_radius):
+            section = section.next 
+        contact_centres = []
+        while section is not None:
+            centre_node, section = section.check_contact_initial(tyre = self)
+            if centre_node is not None:
+                contact_centres.append(centre_node)
+        return contact_centres
+        
     def draw(self):
         circle_obj = patches.Circle(self.states.position, self.free_radius, linewidth=1,fill=False)
         plt.gca().add_patch(circle_obj)

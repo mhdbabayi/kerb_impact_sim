@@ -1,0 +1,19 @@
+Smart contact detection: 
+    Initialization:
+        this is done before runtime, so no real time concerns, but can't take hours obvoiusly
+        In 2D, start from the first node and check distances, go until you find penetration
+        Then check that section for centre of contact, then the next section, and the next, until you're out of the range of tyre bounding box
+        Centre of contact is just the closest point.
+
+        We're trying to avoid doing a brute force search over a whole section's points. 
+        We're also trying to avoid representing a section as just one circle with a radius, but that migh be ok as long as the section is small enough
+        Make sure things like sharp angles don't get filtered away. 
+
+        For now:
+            Find the first penetrating point
+            Hand over to the section owning that poing. The section will find its centre and return next section if there's still possibility of contact
+            possibility of contact: start point is in bounding box. 
+            do this until no possibility of contact 
+            QUESTION: how do you deal with convext and concave sections. Does it make a difference if the starting section is of either constraint_type
+            ANSWER: For now let's check all consecutive sections we'll see about concave sections later
+            QUESTION: How about interfering contacts. All the points inside the deflected section ofthe previous contact

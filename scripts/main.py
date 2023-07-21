@@ -38,17 +38,18 @@ random_road :flx.Road = flx.Road.make_random_road(length=10,
                                  frequency_scale=2,
                                  max_range=0.5)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
-                                                  step_size = 0.01)
+                                                  step_size = 0.005)
 road = fnt_road
-tyre = flx.ContinousTyre(initial_x=initial_x,
-                          boundary_condition_file= matlab_file_path,
-                          mass=unsprung_mass,
-                          road=road,
-                          free_radius=tyre_radius,
-                          x_speed=forward_speed,
-                          y_speed=0,
-                          rigid_ring_nat_freq_hz=10,
-                          rigid_ring_damping_ratio= 0.1,
+tyre = flx.ContinousTyre(
+                        initial_x=11.6,
+                        boundary_condition_file= matlab_file_path,
+                        mass=unsprung_mass,
+                        road=road,
+                        free_radius=tyre_radius,
+                        x_speed=forward_speed,
+                        y_speed=0,
+                        rigid_ring_nat_freq_hz=10,
+                        rigid_ring_damping_ratio= 0.1,
                         )
 q_car = flx.SprungMass(tyre_inst=tyre,
                        mass = sprung_mass,
@@ -80,14 +81,14 @@ while tyre.states.position.x < road.length-2:
     '''
     q_car.update_states()
     tyre.update_states(-(q_car.spring_force + q_car.damper_force))
+    contact_centres = tyre.initialize_contact()
     # if len(tyre.contacts)>0:
     #     tyre.get_full_profile()
     # draw results
     if np.mod(step , draw_frequency) == 0:
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
-        # for ax in Ax:
-        #     ax.cla()
-        # Ax.cla()
+        for c in contact_centres:
+            plt.plot(c.position.x , c.position.y , "bo")
         road.draw()
         tyre.draw()
         q_car.draw()
