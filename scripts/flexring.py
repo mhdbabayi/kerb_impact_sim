@@ -17,78 +17,6 @@ Deflection of a node is positive towards the outside of the tyre(increase in rad
 '''
 
 
-
-   
-def fit_poly(P1, P2, P3):
-    x1, y1, dy1 = (P1[0], P1[1], P1[2])
-    x2, y2, dy2 = (P2[0], P2[1], P2[2])
-    x3, y3, dy3 = (P3[0], P3[1], P3[2])
-
-    A = np.array([
-        [x1**5, x1**4, x1**3, x1**2, x1, 1],
-        [5*x1**4, 4*x1**3, 3*x1**2, 2*x1, 1, 0],
-        [x2**5, x2**4, x2**3, x2**2, x2, 1],
-        [5*x2**4, 4*x2**3, 3*x2**2, 2*x2, 1, 0],
-        [x3**5, x3**4, x3**3, x3**2, x3, 1],
-        [5*x3**4, 4*x3**3, 3*x3**2, 2*x3, 1, 0]
-    ])
-
-    B = np.array([y1, dy1, y2, dy2, y3, dy3])
-    coefficients = np.linalg.solve(A, B)
-    
-    return np.poly1d(coefficients)
-def construct_piecewise_poly(start, end, peak):
-    x1, y1 = (start[0],start[1])
-    x2, y2 = (end[0], end[1])
-    x3, y3 = (peak[0], peak[1])
-
-    a1 = (y1-y3)/((x1-x3)**2)
-    a2 = (y2 -y3)/(x2**2 - 2*x2*x3 + x3**2)
-    b1 = -(2*x3*y1 - 2*x3*y3)/((x1-x3)**2)
-    b2 = -(2*x3*y2 - 2*x3*y3)/(x2**2 - 2*x2*x3 + x3**2)
-    c1 = (y3*x1**2 - 2*y3*x1*x3 + y1*x3**2)/((x1 - x3)**2)
-    c2 = (y3*x2**2 - 2*y3*x2*x3 + y2*x3**2)/(x2**2 - 2*x2*x3 + x3**2)
-
-    def piecewise_polynomial(x):
-        if x <= x3:
-            return a1*x**2 + b1*x + c1
-        else:
-            return a2*x**2 + b2*x + c2
-
-    return piecewise_polynomial
-def interpolate_boundary_condition(centre:Vector2,
-                                   radius:float,
-                                   point1:Vector2,
-                                   point2:Vector2,
-                                   dydx:float,
-                                   ddydx:float,
-                                   beta:float,
-                                   direction:int):
-    # given a chord or a semi chord on a circle, finds the 
-    # point along the chord where separation happens
-    dr_1 = (point1 - centre).magnitude() - radius
-    dr_2 = (point2 - centre).magnitude() - radius
-    dr_dtheta_1 = polar_derivative(point= point1 - centre,dy=dydx)
-    dr_dtheta_2 = polar_derivative(point= point2- centre,dy= dydx)
-    ddr_dtheta_1 = polar_second_derivative(point1 - centre,dydx,ddydx)
-    ddr_dtheta_2 = polar_second_derivative(point2 - centre, dydx,ddydx)                                           
-    # condition is true when lhs > rhs
-    # we calculate lhs and rhs at point1 and point2 and linearly interpolate
-    # to find the point where they cross
-    """
-    print(f'''r1: {dr_1}
-    r2: {dr_2}\ndr1:{dr_dtheta_1}
-    dr2: {dr_dtheta_1}
-    ddr1: {ddr_dtheta_1}
-    ddr2: {ddr_dtheta_2}''')
-    """
-    lhs_1 = 0.5*ddr_dtheta_1
-    lhs_2 = 0.5*ddr_dtheta_2
-    rhs_1 = -2*(beta**2)*(direction*dr_dtheta_1/beta + dr_1)
-    rhs_2 = -2*(beta**2)*(direction*dr_dtheta_2/beta + dr_2)
-    t = (rhs_1 - lhs_1)/((lhs_2-lhs_1)-(rhs_2 - rhs_1))# where rhs == lhs
-    return point1 + t*(point2 - point1), t
-
 class Road:
     filter_window_size_global = 20 
     def __init__(self, length = 5, high_res=False) -> None:
@@ -234,7 +162,6 @@ class Road:
                 self.next = Road.Node(idx = self.idx+1, road = self.road, prev=self)
                 return self.next
             return None
-            
     class Section():
         def __init__(self,road,number, start_node, prev= None) -> None:
             self.road:Road = road
@@ -242,18 +169,29 @@ class Road:
             self.prev:Road.Section = prev
             self.next:Road.Section = None
             self.start_node:Road.Node = start_node
+            self.start_node.section = self
             self.max_curvature_mag = np.abs(start_node.curvature)
             self.end_node:Road.Node = start_node 
             self.peak_node:Road.Node = start_node
             self.curvature_sign = np.sign(start_node.curvature)
+            # find peak curvature point
             while np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature):
-                self.end_node.section = self
                 if np.abs(self.end_node.curvature) > self.max_curvature_mag:
                     self.peak_node = self.end_node
                     self.max_curvature_mag = np.abs(self.end_node.curvature)
                 self.end_node = self.end_node.next
+                self.end_node.section = self
                 if self.end_node.next is None:
                     break
+            
+            try:
+                self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.position,
+                                                            p0= self.peak_node.position,
+                                                            p2= self.end_node.position)
+                self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
+            except:
+                self.fit_centre = None
+                self.fit_curvature = None  
         def make_next(self):
             if self.next is not None:
                 return self.next    
@@ -277,6 +215,7 @@ class Road:
                 self.next.start_node = self.end_node
                 self.next.number = self.number
                 self.next.prev = self.prev
+                self.start_node.section = self.next
             if self.prev is not None:
                 self.prev.end_node = self.start_node
                 self.prev.next = self.next
@@ -296,7 +235,12 @@ class Road:
             if  self.end_node.position.x > (tyre.states.position.x + tyre.free_radius):
                 return min_node, None
             return min_node, self.next
-
+        def draw_fit_circle(self):
+            if self.fit_centre is not None:
+                fit_circle = patches.Circle(self.fit_centre,
+                                            1/self.fit_curvature,
+                                            fill=False, color="purple")
+                phsx.DynamicObject.add_patch(fit_circle)
 class ContinousTyre(phsx.RigidBody):
     beta = 5
     lump_stiffness = 500000.
@@ -311,7 +255,7 @@ class ContinousTyre(phsx.RigidBody):
                  rigid_ring_nat_freq_hz = 100,
                  rigid_ring_damping_ratio = 0.5) -> None:
         
-        initial_y = road.y[np.where(road.x > initial_x)[0][0]] + free_radius *0.95
+        initial_y = road.y[np.where(road.x > initial_x)[0][0]] + free_radius *1.3
         super().__init__(mass = mass, initial_x=initial_x, initial_y = initial_y,name="tyre",
                        initial_x_dot = x_speed, initial_y_dot = y_speed,constraint_type='101'
                        )
@@ -373,8 +317,7 @@ class ContinousTyre(phsx.RigidBody):
             centre_node, section = section.check_contact_initial(tyre = self)
             if centre_node is not None:
                 contact_centres.append(centre_node)
-        return contact_centres
-        
+        return contact_centres    
     def draw(self):
         circle_obj = patches.Circle(self.states.position, self.free_radius, linewidth=1,fill=False)
         phsx.DynamicObject.add_patch(circle_obj)
@@ -481,11 +424,12 @@ class ContinousTyre(phsx.RigidBody):
             if not isinstance(other, ContinousTyre.Contact):
                 return NotImplemented
             return self.centre_point_angle_f() < other.centre_point_angle_f()
+        def centre_node(self):
+            n = self.tyre.road.start_node
+            while n.idx != self.centre_point_idx:
+                n = n.next
+            return n
         def draw(self):
-            graphic_objects = []
-            graphic_objects.append(
-                phsx.DynamicObject.plot(self.centre_point_f().x , self.centre_point_f().y , marker ="o")
-            )
             self.draw_terrain_circles()
             self.draw_envelop()
         def draw_pressure(self):
@@ -526,7 +470,10 @@ class ContinousTyre(phsx.RigidBody):
             )
             return graphic_objects
         def draw_envelop(self):
-            graphic_objects = []
+            phsx.DynamicObject.plot(x= self.centre_node().position.x,
+                                    y= self.centre_node().position.y,
+                                    marker="x", color="green",markersize=10)
+            
             x = [self.tyre.states.position.x +\
                   (self.tyre.free_radius - w)*np.cos(t) for
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
@@ -534,15 +481,15 @@ class ContinousTyre(phsx.RigidBody):
                   (self.tyre.free_radius - w)*np.sin(t) for
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
             phsx.DynamicObject.plot(x , y , color = "green")
-            return graphic_objects
         def set_equivalent_circles(self):
-            # TODO sign of tangent input acts strange
+            fore_point = self.centre_node().section.end_node.next.position
+            aft_point = self.centre_node().section.start_node.prev.position
             fore_curvature = ut.get_circle_tangent_2points(tangent=-self.normal_vector_f().cross(),
                                                            p0= self.centre_point_f(),
-                                                           p1= self.tyre.road.points[self.centre_point_idx + 15])
+                                                           p1= fore_point)
             aft_curvature = ut.get_circle_tangent_2points(tangent=self.normal_vector_f().cross(),
                                                           p0 = self.centre_point_f(),
-                                                          p1= self.tyre.road.points[self.centre_point_idx - 15])
+                                                          p1= aft_point)
             # check for zero curvature
             if np.abs(fore_curvature) < 0.1:
                 self.fore_circle_radius = 10
@@ -650,14 +597,39 @@ class ContinousTyre(phsx.RigidBody):
                 self.prev_whole_deformation_profile = self.whole_deformation_profile
                 self.prev_whole_theta_profile = self.whole_theta_profile - self.centre_migration_theta
     class MultiContact:
+        # this is a contact which takes advantage of the smart road
+        # we can have multiple contacts in and the deflection from all of them is itegrated
         def __init__(self,
                      tyre, 
-                     node_list:list[Road.Node],
+                     node:Road.Node,
                      ) -> None:
-            self.tyre = tyre
-            self.node_list: list[Road.Node] = sorted(node_list,
-                                                      key=lambda node:(node.position - tyre.states.position).magnitude_squared())
-            
+            self.tyre:ContinousTyre = tyre
+            self.node_list: list[Road.Node] = [node]
+        def get_node_angle(self , node:Road.Node):
+            #no checks carried out to see if node is in the node list, BE CAREFUL
+            # only call it on nodes that are in this contact
+            return np.arctan2(node.position.y - self.tyre.states.position.y,
+                              node.position.x - self.tyre.states.position.x)
+        def get_node_normal_vector(self, node:Road.Node) -> Vector2:
+            return node.position - self.tyre.states.position   
+        def get_node_replacement(self, node:Road.Node):
+            new_node = node
+            while self.get_node_normal_vector(new_node.next).magnitude_squared() < \
+                self.get_node_normal_vector(new_node).magnitude_squared():
+                new_node = new_node.next
+            if self.get_node_normal_vector(new_node).magnitude() < self.tyre.free_radius:
+                return new_node
+            return None
+        def update_nodes(self):
+            for i in range(len(self.node_list)):
+                self.node_list[i] = self.get_node_replacement(self.node_list[i])
+            self.node_list = [n for n in self.node_list if n is not None]
+            return len(self.node_list) > 0
+        def draw(self):
+            for node in self.node_list:
+                phsx.DynamicObject.plot(node.position.x, node.position.y ,
+                                         marker = ".", markersize = 20, color = "green")
+                node.section.draw_fit_circle()
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,
                      natural_freq_hz= 100,

@@ -26,10 +26,10 @@ class DynamicObject:
         pass
     @staticmethod
     def plot(x , y, *args, **kwargs):
-        DynamicObject.graphic_objects += plt.plot(x , y,*args, **kwargs )
+        DynamicObject.graphic_objects += plt.plot(x , y )
     @staticmethod
-    def add_patch(patch):
-        DynamicObject.graphic_objects.append(plt.gca().add_patch(patch))
+    def add_patch(patch, *args, **kwargs):
+        DynamicObject.graphic_objects.append(plt.gca().add_patch(patch, *args, **kwargs))
     def clear_plot():
         while len(DynamicObject.graphic_objects) > 0 :
             g = DynamicObject.graphic_objects.pop()

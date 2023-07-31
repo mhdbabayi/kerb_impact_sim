@@ -18,6 +18,8 @@ Smart contact detection:
             ANSWER: For now let's check all consecutive sections we'll see about concave sections later
             QUESTION: How about interfering contacts. All the points inside the deflected section ofthe previous contact
 	    ANSWER**: THERE ARE NONE. barring the initialization step, 
+
+
 every following step the movement has been so small that any contact 
 detected is limited to that convex section only. So if contacts in 
 different sections are discovered, they are definitely separate contacts. 
@@ -31,3 +33,14 @@ different sections are discovered, they are definitely separate contacts.
     Let's go with what we have for now, do the deflection based on the belt, in the contact section, 
     "FIND THE DISTRIBUTION BASED ON THE DEFLECTION OF THE BELT, SO AT THE BOUNDARIES IT GOES DOWN TO 0",
     *Solve the differential equation for the radial beam later             
+Monday, 31st Jul:
+    Do the terrain filtering, i.e. fit a circle that passes through 3 poins;
+        start, end and the peak
+    then the contact with the section will be a contact with a circle and very quickly resolved
+
+    In some of the sections, the peak node is the same as the start or end node, we skip those cases for now, have to deal with them later 
+    for the step, the circle is predictibly not as sharp, but this can be remedied by maybe shortening the filter window. either way it's accepetable and much faster
+    OR:
+    keep the same two circle solution, but use the end and start node of the section as your boudnaries
+    When cleaning up the section, if you remove one section, you'll have to shift all the following section numbers by 1, not just the immediate next section. (how did you miss that you idiot)
+    
