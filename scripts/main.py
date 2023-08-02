@@ -19,25 +19,14 @@ forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
 if DEBUG:
     draw_frequency = 1
-    initial_x = 4
+    initial_x = 8.5
 else:
     draw_frequency = 10
     initial_x = 4
 sprung_mass = 700
 unsprung_mass = 50
 # defining sim objects, all moving objects inherit from rigid body
-# step_road: flx.Road = flx.Road.make_simple_road(
-#                 step_width=0.02,
-#                 step_height=0.08,
-#                 step_profile_phase=np.pi,
-#                 length = 10,
-#                 high_res=True
-#                 )
-step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"))
-# #random_road :flx.Road = flx.Road.make_random_road(length=10,
-#                                  smallest_wave_length=tyre_radius,
-#                                  frequency_scale=2,
-#                                  max_range=0.5)
+step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"), step_size=0.005)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
                                                   step_size = 0.005)
 road = step_road
@@ -74,7 +63,7 @@ current_xlim = (road.x[0] , road.x[-1])
 road.draw()
 
 m_contact:flx.ContinousTyre.MultiContact = None
-while tyre.states.position.x < road.length-2:
+while tyre.states.position.x < road.length-0.5:
     step += 1
     plt.sca(Ax)
     st = time.time() # For timing the main operations

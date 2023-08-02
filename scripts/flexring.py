@@ -18,7 +18,7 @@ Deflection of a node is positive towards the outside of the tyre(increase in rad
 
 
 class Road:
-    filter_window_size_global = 20
+    filter_window_size_global = 0.01
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
@@ -148,15 +148,16 @@ class Road:
             self.prev:Road.Node = prev
             self.next:Road.Node = None
             self.idx = idx
-            if idx > self.road.filter_window_size_global and idx < (len(self.road.points) - self.road.filter_window_size_global):
-                self.tangent = (self.road.points[idx+ self.road.filter_window_size_global] -\
-                                self.road.points[idx - self.road.filter_window_size_global]).normalized()
-                self.curvature = ut.get_curvature_3point(prev = self.road.points[idx - self.road.filter_window_size_global],
-                                                        target= self.position,
-                                                        next = self.road.points[idx + self.road.filter_window_size_global])
-            else:
-                self.tangent = Vector2(0 , 0)
-                self.curvature = 0
+            prev_idx = next_idx = idx
+            while prev_idx > 0 and (self.road.points[prev_idx] - self.position).magnitude() < self.road.filter_window_size_global:
+                prev_idx -=1
+            while next_idx < len(self.road.points)-1 and (self.road.points[next_idx] - self.position).magnitude() < self.road.filter_window_size_global:
+                next_idx +=1
+            self.tangent = (self.road.points[next_idx] -\
+                                self.road.points[prev_idx]).normalized()
+            self.curvature = ut.get_curvature_3point(prev = self.road.points[prev_idx],
+                                                    target= self.position,
+                                                    next = self.road.points[next_idx])
         def make_next(self):
             if self.next is not None:
                 return self.next
@@ -177,7 +178,8 @@ class Road:
             self.peak_node:Road.Node = start_node
             self.curvature_sign = np.sign(start_node.curvature)
             # find peak curvature point
-            while np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature):
+            while (np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature)) or\
+                    (np.abs(self.end_node.next.curvature) < 2) :
                 if np.abs(self.end_node.curvature) > self.max_curvature_mag:
                     self.peak_node = self.end_node
                     self.max_curvature_mag = np.abs(self.end_node.curvature)
@@ -185,7 +187,7 @@ class Road:
                 self.end_node.section = self
                 if self.end_node.next is None:
                     break
-            
+          
             try:
                 self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.position,
                                                             p0= self.peak_node.position,
@@ -197,7 +199,7 @@ class Road:
         def make_next(self):
             if self.next is not None:
                 return self.next    
-            elif self.end_node.next is not None:
+            elif self.end_node.next.next is not None:
                 self.next = Road.Section(road = self.road, number=self.number+1, start_node=self.end_node.next,
                                             prev=self)
                 return self.next
@@ -257,7 +259,7 @@ class ContinousTyre(phsx.RigidBody):
                  rigid_ring_nat_freq_hz = 100,
                  rigid_ring_damping_ratio = 0.5) -> None:
         
-        initial_y = road.y[np.where(road.x > initial_x)[0][0]] + free_radius *1.3
+        initial_y = road.y[np.where(road.x > initial_x)[0][0]] + free_radius *1.1
         super().__init__(mass = mass, initial_x=initial_x, initial_y = initial_y,name="tyre",
                        initial_x_dot = x_speed, initial_y_dot = y_speed,constraint_type='101'
                        )
@@ -477,8 +479,8 @@ class ContinousTyre(phsx.RigidBody):
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
             phsx.DynamicObject.plot(x , y , color = "green")
         def set_equivalent_circles(self):
-            fore_point = self.centre_node().section.end_node.position
-            aft_point = self.centre_node().section.start_node.position
+            fore_point = self.centre_node().section.end_node.next.position
+            aft_point = self.centre_node().section.start_node.prev.position
             fore_curvature = ut.get_circle_tangent_2points(tangent=-self.normal_vector_f().cross(),
                                                            p0= self.centre_point_f(),
                                                            p1= fore_point)

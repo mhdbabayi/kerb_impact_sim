@@ -44,4 +44,9 @@ Monday, 31st Jul:
     keep the same two circle solution, but use the end and start node of the section as your boudnaries
     When cleaning up the section, if you remove one section, you'll have to shift all the following section numbers by 1, not just the immediate next section. (how did you miss that you idiot)
 Tuesday 1st Aug: 
-    Using start and end of the section helps make the circles more continous and the changes les jumpy, but could still ignore the peaks. We fall back on the filtering algorithm, where we simply use the fitted circle as the terrain profile. This inevitably filters out the sharp corners, we turn the filtering windows down to 1 cm, so the smallest detectible radius is 1 cm which should be okay. 
+    Using start and end of the section helps make the circles more continous and the changes les jumpy, but could still ignore the peaks. We fall back on the filtering algorithm, where we simply use the fitted circle as the terrain profile. This inevitably filters out the sharp corners, we turn the filtering window down to 1 cm, so the smallest detectible radius is 1 cm which should be okay. 
+Wednesday 2nd Aug:
+    Problem with a small filtering windows is it accounts for every little detail on the road surface. while those details might be there, they massively complicate the contact detection process. Today, I'll keep the filtering the same, so keeping the same little sections, but try to implement a contact detection method that is not sensitive the those, i.e. if all the little contacts turn out to belong to the same surface, we take that to be one contact. 
+    Algorithm:
+        Start with a tyre not in contact, as this might happen during the run anyway, we need to be able to resolve it in real time. 
+        Detect the penetrating points using a tree (not necessirily implemented here), 
