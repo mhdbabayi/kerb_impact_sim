@@ -18,7 +18,7 @@ Deflection of a node is positive towards the outside of the tyre(increase in rad
 
 
 class Road:
-    filter_window_size_global = 20 
+    filter_window_size_global = 20
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
@@ -96,7 +96,9 @@ class Road:
     @staticmethod
     def make_road_from_file(file_name, step_size=0.001):
         with open(file_name) as f:
-            point_list = np.array([[float(f) for f in line.split(",")] for line in f])
+            point_list = [np.double(line.split(",")) for line in f]
+        point_list.sort(key= lambda p:p[0])
+        point_list = np.array(point_list)
         x , y = Road.under_sample(x = point_list[: , 0] , z=point_list[: , 2] , x_step=step_size)
         road = Road(length=x[-1], high_res=False)
         road.x = x
@@ -432,6 +434,7 @@ class ContinousTyre(phsx.RigidBody):
         def draw(self):
             self.draw_terrain_circles()
             self.draw_envelop()
+            pass
         def draw_pressure(self):
             # phsx.DynamicObject.plot(np.rad2deg(self.prev_whole_theta_profile),
             #          self.prev_whole_deformation_profile*1000 ,"r--")
@@ -442,7 +445,6 @@ class ContinousTyre(phsx.RigidBody):
             phsx.DynamicObject.plot(self.tyre.data_logger.data_dict["tyre"]["position"]["x"],
             self.tyre.data_logger.data_dict["tyre"]["force"]["y"])          
         def draw_terrain_circles(self):
-            graphic_objects = []
             fore_circle = patches.Wedge(center=self.fore_circle_centre,
                                         r=self.fore_circle_radius,
                                         theta1= np.rad2deg(self.centre_point_angle_f()),
@@ -450,7 +452,6 @@ class ContinousTyre(phsx.RigidBody):
                                         fill = None,
                                         width=0.0001,
                                         lw = 2,
-                                        color = "magenta",
                                         linestyle = "--"
                                          )
             aft_circle = patches.Wedge(center = self.aft_circle_centre,
@@ -460,19 +461,13 @@ class ContinousTyre(phsx.RigidBody):
                                        fill= None,
                                        width = 0.0001,
                                        lw =2,
-                                       color = "magenta",
                                        linestyle = "--")
-            graphic_objects.append(
-                phsx.DynamicObject.add_patch(fore_circle)
-            )
-            graphic_objects.append(
-                phsx.DynamicObject.add_patch(aft_circle)
-            )
-            return graphic_objects
+            phsx.DynamicObject.add_patch(fore_circle)
+            phsx.DynamicObject.add_patch(aft_circle)
         def draw_envelop(self):
             phsx.DynamicObject.plot(x= self.centre_node().position.x,
                                     y= self.centre_node().position.y,
-                                    marker="x", color="green",markersize=10)
+                                    marker="x", color="green",markersize=5)
             
             x = [self.tyre.states.position.x +\
                   (self.tyre.free_radius - w)*np.cos(t) for
@@ -482,8 +477,8 @@ class ContinousTyre(phsx.RigidBody):
                     w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
             phsx.DynamicObject.plot(x , y , color = "green")
         def set_equivalent_circles(self):
-            fore_point = self.centre_node().section.end_node.next.position
-            aft_point = self.centre_node().section.start_node.prev.position
+            fore_point = self.centre_node().section.end_node.position
+            aft_point = self.centre_node().section.start_node.position
             fore_curvature = ut.get_circle_tangent_2points(tangent=-self.normal_vector_f().cross(),
                                                            p0= self.centre_point_f(),
                                                            p1= fore_point)
@@ -628,7 +623,7 @@ class ContinousTyre(phsx.RigidBody):
         def draw(self):
             for node in self.node_list:
                 phsx.DynamicObject.plot(node.position.x, node.position.y ,
-                                         marker = ".", markersize = 20, color = "green")
+                                         marker = ".", markersize = 10, color = "purple")
                 node.section.draw_fit_circle()
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,

@@ -26,7 +26,7 @@ class DynamicObject:
         pass
     @staticmethod
     def plot(x , y, *args, **kwargs):
-        DynamicObject.graphic_objects += plt.plot(x , y )
+        DynamicObject.graphic_objects += plt.plot(x , y , *args, **kwargs)
     @staticmethod
     def add_patch(patch, *args, **kwargs):
         DynamicObject.graphic_objects.append(plt.gca().add_patch(patch, *args, **kwargs))

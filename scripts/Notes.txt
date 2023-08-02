@@ -43,4 +43,5 @@ Monday, 31st Jul:
     OR:
     keep the same two circle solution, but use the end and start node of the section as your boudnaries
     When cleaning up the section, if you remove one section, you'll have to shift all the following section numbers by 1, not just the immediate next section. (how did you miss that you idiot)
-    
+Tuesday 1st Aug: 
+    Using start and end of the section helps make the circles more continous and the changes les jumpy, but could still ignore the peaks. We fall back on the filtering algorithm, where we simply use the fitted circle as the terrain profile. This inevitably filters out the sharp corners, we turn the filtering windows down to 1 cm, so the smallest detectible radius is 1 cm which should be okay. 
