@@ -50,3 +50,9 @@ Wednesday 2nd Aug:
     Algorithm:
         Start with a tyre not in contact, as this might happen during the run anyway, we need to be able to resolve it in real time. 
         Detect the penetrating points using a tree (not necessirily implemented here), 
+    What I did with sectioning was a bit of a hack. Need to consider flat sections too. 
+Thursday 3rd Aug: 
+    Problems remaining: 
+        A formulation to take into account the tread elements
+        A formulation for multiple contacts
+        Solution for multiple contact: use the fitted circles to terrain sections, and jump from one section to the next.

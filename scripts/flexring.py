@@ -10,15 +10,19 @@ from scipy import interpolate
 from scipy import io
 import bisect
 from pathlib import Path
+from enum import Enum
 '''
 sign convention: 
 Tyre node zero is at the top and the nodes go counter-clockwise
 Deflection of a node is positive towards the outside of the tyre(increase in radius)
 '''
-
+class CurvatureType(Enum):
+    BUMP = 1
+    HOLE = 2
+    FLAT = 3
 
 class Road:
-    filter_window_size_global = 0.01
+    filter_window_size_global = 0.03
     def __init__(self, length = 5, high_res=False) -> None:
         self.x = None
         self.y = None
@@ -123,20 +127,20 @@ class Road:
             end_node = end_node.next
         self.start_section = Road.Section(road = self, number=0, start_node=self.start_node)
         end_section = self.start_section
-        while end_section.make_next() is not None:
-            end_section = end_section.next
-        s = self.start_section
-        while s is not None:
-            if s.end_node is s.start_node:
-                s.remove()
-            s = s.next
+        while (end_section:=end_section.make_next()) is not None:
+            pass
+        # s = self.start_section
+        # while s is not None:
+        #     if s.end_node is s.start_node:
+        #         s.remove()
+        #     s = s.next
         
     def draw(self):
         plt.plot(self.x , self.y , color="brown")
         s = self.start_section
-        while s is not None:
-            s.draw()
-            s = s.next
+        # while s is not None:
+        #     s.draw()
+        #     s = s.next
     class Node():
         def __init__(self,
                      idx,
@@ -158,6 +162,8 @@ class Road:
             self.curvature = ut.get_curvature_3point(prev = self.road.points[prev_idx],
                                                     target= self.position,
                                                     next = self.road.points[next_idx])
+            if np.abs(self.curvature )< 1:
+                self.curvature = 0
         def make_next(self):
             if self.next is not None:
                 return self.next
@@ -176,10 +182,15 @@ class Road:
             self.max_curvature_mag = np.abs(start_node.curvature)
             self.end_node:Road.Node = start_node 
             self.peak_node:Road.Node = start_node
-            self.curvature_sign = np.sign(start_node.curvature)
+            self.type:CurvatureType
+            if self.start_node.curvature < 0:
+                self.type = CurvatureType.BUMP
+            elif self.start_node.curvature > 0:
+                self.type = CurvatureType.HOLE
+            else:
+                self.type = CurvatureType.FLAT
             # find peak curvature point
-            while (np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature)) or\
-                    (np.abs(self.end_node.next.curvature) < 2) :
+            while (np.sign(self.end_node.next.curvature) == np.sign(self.end_node.curvature)):
                 if np.abs(self.end_node.curvature) > self.max_curvature_mag:
                     self.peak_node = self.end_node
                     self.max_curvature_mag = np.abs(self.end_node.curvature)
@@ -187,12 +198,15 @@ class Road:
                 self.end_node.section = self
                 if self.end_node.next is None:
                     break
-          
+            if self.start_node.curvature == 0:
+                self.fit_curvature = 0
+                self.fit_centre = (self.start_node.position + self.end_node.position)/2
             try:
                 self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.position,
                                                             p0= self.peak_node.position,
                                                             p2= self.end_node.position)
                 self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
+            # failure cases: first and last nodes, single node sections and zero curvature
             except:
                 self.fit_centre = None
                 self.fit_curvature = None  
@@ -202,11 +216,20 @@ class Road:
             elif self.end_node.next.next is not None:
                 self.next = Road.Section(road = self.road, number=self.number+1, start_node=self.end_node.next,
                                             prev=self)
+                if self.next.end_node.idx - self.next.start_node.idx < 2:
+                    # absorb next
+                    n = self.next.start_node
+                    while n is not self.next.end_node.next:
+                        n.section = self
+                        self.end_node = n
+                        n = n.next
+                        self.next = None
+                        return self
                 return self.next
             else:
                 return None
         def draw(self):
-            if self.curvature_sign > 0:
+            if self.is_convex:
                 color = "red"
             else:
                 color = "black"
@@ -436,6 +459,14 @@ class ContinousTyre(phsx.RigidBody):
         def draw(self):
             self.draw_terrain_circles()
             self.draw_envelop()
+            phsx.DynamicObject.plot(self.centre_node().section.start_node.prev.position.x,
+                                    self.centre_node().section.start_node.prev.position.y,
+                                    marker="*", markersize="10", color="red")
+            phsx.DynamicObject.plot(self.centre_node().section.end_node.next.position.x,
+                                    self.centre_node().section.end_node.next.position.y,
+                                    marker="*", markersize="10", color="black")
+            if self.centre_node().section.type != CurvatureType.HOLE:
+                self.centre_node().section.draw_fit_circle()
             pass
         def draw_pressure(self):
             # phsx.DynamicObject.plot(np.rad2deg(self.prev_whole_theta_profile),
@@ -471,13 +502,13 @@ class ContinousTyre(phsx.RigidBody):
                                     y= self.centre_node().position.y,
                                     marker="x", color="green",markersize=5)
             
-            x = [self.tyre.states.position.x +\
-                  (self.tyre.free_radius - w)*np.cos(t) for
-                    w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
-            y = [self.tyre.states.position.y +\
-                  (self.tyre.free_radius - w)*np.sin(t) for
-                    w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
-            phsx.DynamicObject.plot(x , y , color = "green")
+            # x = [self.tyre.states.position.x +\
+            #       (self.tyre.free_radius - w)*np.cos(t) for
+            #         w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
+            # y = [self.tyre.states.position.y +\
+            #       (self.tyre.free_radius - w)*np.sin(t) for
+            #         w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
+            # phsx.DynamicObject.plot(x , y , color = "green")
         def set_equivalent_circles(self):
             fore_point = self.centre_node().section.end_node.next.position
             aft_point = self.centre_node().section.start_node.prev.position
@@ -559,7 +590,8 @@ class ContinousTyre(phsx.RigidBody):
             uniform_deformation = interpolate.interp1d(stacked_theta , stacked_deformation)(uniform_theta)
             return  uniform_theta, uniform_deformation
         def update(self):
-            self.update_centre_point_idx() 
+            #self.update_centre_point_idx() 
+            self.update_centre_node()
             # check if contact still exists
             self.set_equivalent_circles()
             if self.centre_point_deformation_f() < 0:
@@ -583,6 +615,17 @@ class ContinousTyre(phsx.RigidBody):
                 self.centre_point_idx += idx_increment
             rolling_radius = (self.centre_point_f() - self.tyre.states.position).magnitude()
             self.centre_migration_theta = (self.tyre.road.points[prev_centre_idx] - self.centre_point_f()).magnitude()/rolling_radius
+        def update_centre_node(self):
+            self.prev_centre_point_deformation = self.centre_point_deformation_f()
+            prev_centre_idx = self.centre_point_idx
+            rolling_radius = (self.centre_point_f() - self.tyre.states.position).magnitude()
+            n = self.centre_node()
+            while n is not self.centre_node().section.end_node:
+                if (n.position-self.tyre.states.position).magnitude_squared() <\
+                    (self.centre_point_f() - self.tyre.states.position).magnitude_squared():
+                    self.centre_point_idx = n.idx
+                n = n.next
+            self.centre_migration_theta = (self.tyre.road.points[prev_centre_idx] - self.centre_point_f()).magnitude()/rolling_radius
         def update_deformation(self):
             # TODO fix for first iteration
             if self.whole_theta_profile is not None:
@@ -601,7 +644,7 @@ class ContinousTyre(phsx.RigidBody):
                      node:Road.Node,
                      ) -> None:
             self.tyre:ContinousTyre = tyre
-            self.node_list: list[Road.Node] = [node]
+            self.centre_node : Road.Node = node
         def get_node_angle(self , node:Road.Node):
             #no checks carried out to see if node is in the node list, BE CAREFUL
             # only call it on nodes that are in this contact
@@ -627,6 +670,10 @@ class ContinousTyre(phsx.RigidBody):
                 phsx.DynamicObject.plot(node.position.x, node.position.y ,
                                          marker = ".", markersize = 10, color = "purple")
                 node.section.draw_fit_circle()
+        def get_next(self):
+            n = self.centre_node.section.next.start_node
+            if n.section.is_convex:
+                n = n.section.next.start_node
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,
                      natural_freq_hz= 100,

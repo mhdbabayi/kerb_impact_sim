@@ -19,7 +19,7 @@ forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
 if DEBUG:
     draw_frequency = 1
-    initial_x = 8.5
+    initial_x = 1
 else:
     draw_frequency = 10
     initial_x = 4
@@ -64,6 +64,7 @@ road.draw()
 
 m_contact:flx.ContinousTyre.MultiContact = None
 while tyre.states.position.x < road.length-0.5:
+
     step += 1
     plt.sca(Ax)
     st = time.time() # For timing the main operations
