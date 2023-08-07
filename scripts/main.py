@@ -19,7 +19,7 @@ forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
 if DEBUG:
     draw_frequency = 1
-    initial_x = 1
+    initial_x = 9.5
 else:
     draw_frequency = 10
     initial_x = 4
@@ -29,7 +29,7 @@ unsprung_mass = 50
 step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"), step_size=0.005)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
                                                   step_size = 0.005)
-road = step_road
+road = fnt_road
 tyre = flx.ContinousTyre(
                         initial_x= initial_x,
                         boundary_condition_file= matlab_file_path,
@@ -75,20 +75,15 @@ while tyre.states.position.x < road.length-0.5:
     '''
     q_car.update_states()
     tyre.update_states(-(q_car.spring_force + q_car.damper_force))
-    # contact_centres = tyre.initialize_contact()
-    # if m_contact is None:
-    #     if len(contact_centres) > 0:
-    #         m_contact = flx.ContinousTyre.MultiContact(tyre=tyre, node = contact_centres[0])
-    # else:
-    #     m_contact.draw()
-    #     m_contact.update_nodes()
-    #     if len(m_contact.node_list) == 0:
-    #         m_contact = None
+    tyre.find_multiple_contacts()
     # draw results
     if np.mod(step , draw_frequency) == 0:
+        phsx.DynamicObject.clear_plot()
         print(f'{1000*(time.time() - st):.1f} ms/t {q_car.states.velocity.y:0.3f}')
         tyre.draw()
         q_car.draw()
+        for mt in tyre.multi_contacts:
+            mt.draw()
         plt.gca().set_aspect('equal')
         plt.sca(Ax)
         # for c in tyre.contacts:
@@ -105,7 +100,7 @@ while tyre.states.position.x < road.length-0.5:
         current_ylim = plt.gca().get_ylim()
         current_xlim = plt.gca().get_xlim()
     #Ax.cla()
-    phsx.DynamicObject.clear_plot()
+    
 data_logger.write_to_file(file_name=output_file_path)
 print("SIMULTAION COMPLETE")
 

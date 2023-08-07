@@ -183,7 +183,7 @@ class Road:
             self.end_node:Road.Node = start_node 
             self.peak_node:Road.Node = start_node
             self.type:CurvatureType
-            if self.start_node.curvature < 0:
+            if self.start_node.curvature < 0 :
                 self.type = CurvatureType.BUMP
             elif self.start_node.curvature > 0:
                 self.type = CurvatureType.HOLE
@@ -198,25 +198,29 @@ class Road:
                 self.end_node.section = self
                 if self.end_node.next is None:
                     break
-            if self.start_node.curvature == 0:
+            if self.type is CurvatureType.FLAT == 0:
                 self.fit_curvature = 0
                 self.fit_centre = (self.start_node.position + self.end_node.position)/2
-            try:
-                self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.position,
-                                                            p0= self.peak_node.position,
-                                                            p2= self.end_node.position)
-                self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
-            # failure cases: first and last nodes, single node sections and zero curvature
-            except:
-                self.fit_centre = None
-                self.fit_curvature = None  
+            else:
+                try:
+                    self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.prev.position,
+                                                                p0= self.peak_node.position,
+                                                                p2= self.end_node.next.position)
+                    self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
+                # error cases: first and last nodes
+                except:
+                    self.type = CurvatureType.FLAT
+                    self.fit_centre = (self.start_node.position + self.end_node.position)/2
+                    self.fit_curvature = 0  
+            
         def make_next(self):
             if self.next is not None:
                 return self.next    
             elif self.end_node.next.next is not None:
                 self.next = Road.Section(road = self.road, number=self.number+1, start_node=self.end_node.next,
                                             prev=self)
-                if self.next.end_node.idx - self.next.start_node.idx < 2:
+                if (self.next.end_node.idx - self.next.start_node.idx < 2) or\
+                    self.next.type == self.type:
                     # absorb next
                     n = self.next.start_node
                     while n is not self.next.end_node.next:
@@ -229,10 +233,12 @@ class Road:
             else:
                 return None
         def draw(self):
-            if self.is_convex:
+            if self.type is CurvatureType.BUMP:
                 color = "red"
-            else:
+            elif self.type is CurvatureType.HOLE:
                 color = "black"
+            else:
+                color = "blue"
             points = np.array(self.road.points[self.start_node.idx:self.end_node.idx])
             if len(points>0):
                 plt.plot(points[: , 0] , points[: , 1] , color= color)
@@ -246,28 +252,35 @@ class Road:
             if self.prev is not None:
                 self.prev.end_node = self.start_node
                 self.prev.next = self.next
-        def check_contact_initial(self, tyre):
-            # returns closest node in segment and the next segment if it's still in the bounding box
-            if self.curvature_sign >0:
-                return None, self.next
-            min_node:Road.Node = None
-            current_node = self.start_node
-            min_distance_sqr = tyre.free_radius**2
-            while current_node is not self.end_node:
-                if (current_distance_sqr:=(current_node.position - tyre.states.position).magnitude_squared())\
-                      < min_distance_sqr:
-                    min_distance_sqr = current_distance_sqr
-                    min_node = current_node
-                current_node = current_node.next
-            if  self.end_node.position.x > (tyre.states.position.x + tyre.free_radius):
-                return min_node, None
-            return min_node, self.next
         def draw_fit_circle(self):
-            if self.fit_centre is not None:
+            if self.type is CurvatureType.BUMP:
                 fit_circle = patches.Circle(self.fit_centre,
                                             1/self.fit_curvature,
-                                            fill=False, color="purple")
+                                            fill=False, color="purple", linewidth = 3)
                 phsx.DynamicObject.add_patch(fit_circle)
+            else :
+                phsx.DynamicObject.plot((self.start_node.position.x, self.end_node.position.x),
+                                        (self.start_node.position.y, self.end_node.position.y),
+                                        color = "purple", linewidth = 3)
+                                        
+        def get_contact_point(self, tyre):
+            if self.type is CurvatureType.FLAT or self.type is CurvatureType.HOLE:
+                t = (tyre.states.position - self.start_node.position).dot(
+                    (self.end_node.position - self.start_node.position))/\
+                        ((self.end_node.position - self.start_node.position).magnitude_squared())
+                t = max(0 ,min(t , 1))
+                possible_contact_point = self.start_node.position + \
+                    t*(self.end_node.position - self.start_node.position)
+                # could be optimized. This is to make sure the point is in the line segment an not outside of it
+                if ((possible_contact_point - tyre.states.position).magnitude() < tyre.free_radius):
+                    return possible_contact_point
+            elif self.type is CurvatureType.BUMP:
+                possible_contact_point = self.fit_centre + \
+                      (tyre.states.position - self.fit_centre).normalized()*\
+                          (1/self.fit_curvature)
+                if (possible_contact_point - tyre.states.position).magnitude() < tyre.free_radius:
+                    return possible_contact_point
+            return None
 class ContinousTyre(phsx.RigidBody):
     beta = 5
     lump_stiffness = 500000.
@@ -290,6 +303,7 @@ class ContinousTyre(phsx.RigidBody):
         self.free_radius = free_radius
         self.collisions:list[ContinousTyre.Collision] = []
         self.contacts:list[ContinousTyre.Contact] = []
+        self.multi_contacts:list[ContinousTyre.MultiContact] = []
         self.total_contact_force = Vector2(0 , 0)
         # nodes are only used for visualisation
         self.node_angles = np.deg2rad(np.linspace(0 , 360, 361)[0:-1])
@@ -345,6 +359,21 @@ class ContinousTyre(phsx.RigidBody):
             if centre_node is not None:
                 contact_centres.append(centre_node)
         return contact_centres    
+    def find_multiple_contacts(self):
+        self.multi_contacts = []
+        s = self.road.start_section
+        while s.end_node.position.x < (self.states.position.x - self.free_radius):
+            s = s.next
+        while s.start_node.position.x < (self.states.position.x + self.free_radius):
+            contact_point = s.get_contact_point(tyre=self)
+            if contact_point is not None:
+                self.multi_contacts.append(ContinousTyre.MultiContact(tyre=self,
+                                                                      section=s,
+                                                                      centre_position=contact_point))
+
+            s=s.next
+            if s is None:
+                break
     def draw(self):
         circle_obj = patches.Circle(self.states.position, self.free_radius, linewidth=1,fill=False)
         phsx.DynamicObject.add_patch(circle_obj)
@@ -457,7 +486,7 @@ class ContinousTyre(phsx.RigidBody):
                 n = n.next
             return n
         def draw(self):
-            self.draw_terrain_circles()
+            #self.draw_terrain_circles()
             self.draw_envelop()
             phsx.DynamicObject.plot(self.centre_node().section.start_node.prev.position.x,
                                     self.centre_node().section.start_node.prev.position.y,
@@ -465,9 +494,7 @@ class ContinousTyre(phsx.RigidBody):
             phsx.DynamicObject.plot(self.centre_node().section.end_node.next.position.x,
                                     self.centre_node().section.end_node.next.position.y,
                                     marker="*", markersize="10", color="black")
-            if self.centre_node().section.type != CurvatureType.HOLE:
-                self.centre_node().section.draw_fit_circle()
-            pass
+            
         def draw_pressure(self):
             # phsx.DynamicObject.plot(np.rad2deg(self.prev_whole_theta_profile),
             #          self.prev_whole_deformation_profile*1000 ,"r--")
@@ -638,42 +665,26 @@ class ContinousTyre(phsx.RigidBody):
                 self.prev_whole_theta_profile = self.whole_theta_profile - self.centre_migration_theta
     class MultiContact:
         # this is a contact which takes advantage of the smart road
-        # we can have multiple contacts in and the deflection from all of them is itegrated
+        # we will only be working with sections now, so no more nodes for now
         def __init__(self,
                      tyre, 
-                     node:Road.Node,
+                     section:Road.Section,
+                     centre_position:Vector2,
                      ) -> None:
             self.tyre:ContinousTyre = tyre
-            self.centre_node : Road.Node = node
-        def get_node_angle(self , node:Road.Node):
+            self.section:Road.Section = section
+            self.centre_position:Vector2 = centre_position
+        def get_centre_angle(self):
             #no checks carried out to see if node is in the node list, BE CAREFUL
             # only call it on nodes that are in this contact
-            return np.arctan2(node.position.y - self.tyre.states.position.y,
-                              node.position.x - self.tyre.states.position.x)
-        def get_node_normal_vector(self, node:Road.Node) -> Vector2:
-            return node.position - self.tyre.states.position   
-        def get_node_replacement(self, node:Road.Node):
-            new_node = node
-            while self.get_node_normal_vector(new_node.next).magnitude_squared() < \
-                self.get_node_normal_vector(new_node).magnitude_squared():
-                new_node = new_node.next
-            if self.get_node_normal_vector(new_node).magnitude() < self.tyre.free_radius:
-                return new_node
-            return None
-        def update_nodes(self):
-            for i in range(len(self.node_list)):
-                self.node_list[i] = self.get_node_replacement(self.node_list[i])
-            self.node_list = [n for n in self.node_list if n is not None]
-            return len(self.node_list) > 0
+            return np.arctan2(self.centre_position.y - self.tyre.states.position.y,
+                              self.centre_position.x - self.tyre.states.position.x)
+        def get_normal_vector(self) -> Vector2:
+            return self.centre_position - self.tyre.states.position   
         def draw(self):
-            for node in self.node_list:
-                phsx.DynamicObject.plot(node.position.x, node.position.y ,
-                                         marker = ".", markersize = 10, color = "purple")
-                node.section.draw_fit_circle()
-        def get_next(self):
-            n = self.centre_node.section.next.start_node
-            if n.section.is_convex:
-                n = n.section.next.start_node
+            phsx.DynamicObject.plot(self.centre_position.x, self.centre_position.y ,
+                                         marker = "*", markersize = 10, color = "purple")
+            self.section.draw_fit_circle()
     class RigidRing(phsx.RigidBody):
         def __init__(self,tyre,
                      natural_freq_hz= 100,
