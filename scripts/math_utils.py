@@ -54,6 +54,23 @@ def circle_line_intersection(line_start:Vector2, line_end:Vector2, circle_centre
     if(t2 > 0 and t2 < 1):
         Result[1] = line_start + t2*v_line
     return Result
+def circle_line_segment_intersection(line_start:Vector2,
+                                     line_end:Vector2,
+                                     circle_centre:Vector2,
+                                     radius:float) -> Vector2:
+    t = (circle_centre - line_start).dot(line_end - line_start)/((line_end - line_start).magnitude_squared())
+    t = max(0 ,min(t , 1))
+    possible_contact_point = line_start + t*(line_end - line_start)
+    if ((possible_contact_point - circle_centre).magnitude() < radius):
+        return possible_contact_point
+    return None
+def circle_arc_intersection(circle_centre:Vector2,
+                            circle_radius:float,
+                            arc_centre:Vector2,
+                            arc_radius:float,
+                            arc_start_angle_rad:float = None,
+                            arc_end_angle_rad:float = None):
+    pass
 def find_chord_centre(p1:Vector2, p2:Vector2, circle_centre:Vector2):
     #given two points p1 and p2, find the closest point on line segment p1-p2 to circle_centre
     # points p1 and p2 are assumed inside the circle, no checks are carried out. BE CAREFUL!

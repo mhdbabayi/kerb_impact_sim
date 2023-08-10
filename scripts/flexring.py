@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import matplotlib
-matplotlib.use("Qt5Agg")
+#matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import physics_engine as phsx
@@ -203,8 +203,7 @@ class Road:
                 self.end_node = self.end_node.next
                 self.end_node.section = self
                 if self.end_node.next is None:
-                    break      
-        
+                    break                      
         def make_next(self):
             if self.next is not None:
                 return self.next    
@@ -284,16 +283,11 @@ class Road:
                 phsx.DynamicObject.add_patch(fit_arc)
         def get_contact_point(self, tyre):
             if self.type is CurvatureType.FLAT or self.type is CurvatureType.HOLE:
-                t = (tyre.states.position - self.start_node.position).dot(
-                    (self.end_node.position - self.start_node.position))/\
-                        ((self.end_node.position - self.start_node.position).magnitude_squared())
-                t = max(0 ,min(t , 1))
-                possible_contact_point = self.start_node.position + \
-                    t*(self.end_node.position - self.start_node.position)
-                # could be optimized. This is to make sure the point is in the line segment an not outside of it
-                if ((possible_contact_point - tyre.states.position).magnitude() < tyre.free_radius):
-                    return possible_contact_point
-            elif self.type is CurvatureType.BUMP:
+                return ut.circle_line_segment_intersection(line_start= self.start_node.position,
+                                                           line_end= self.end_node.position,
+                                                           circle_centre=tyre.states.position,
+                                                           radius= tyre.free_radius)
+            else:
                 possible_contact_point = self.fit_centre + \
                       (tyre.states.position - self.fit_centre).normalized()*\
                           (1/self.fit_curvature)
@@ -304,7 +298,7 @@ class ContinousTyre(phsx.RigidBody):
     beta = 5
     lump_stiffness = 500000.
     lump_damping = 500
-    element_stiffness = 1000000
+    element_stiffness = 100000
     element_damping = 1000
     
     def __init__(self, initial_x,road:Road,

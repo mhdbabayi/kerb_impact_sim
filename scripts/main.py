@@ -5,7 +5,7 @@ import os, sys
 from pathlib import Path
 import numpy as np
 import matplotlib
-matplotlib.use("Qt5Agg")
+#matplotlib.use("Qt5Agg")
 from matplotlib import pyplot as plt
 from euclid3 import Vector2
 os.system("clear")
@@ -30,18 +30,18 @@ unsprung_mass = 50
 step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"),
                                          step_size=0.005, flip=True)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
-                                                  step_size = 0.005)
-road = fnt_road
-tyre = flx.ContinousTyre(
-                        initial_x= initial_x,
-                        boundary_condition_file= matlab_file_path,
-                        mass=unsprung_mass,
-                        road=road,
-                        free_radius=tyre_radius,
-                        x_speed=forward_speed,
-                        y_speed=0,
-                        rigid_ring_nat_freq_hz=10,
-                        rigid_ring_damping_ratio= 0.1,
+
+                                                  step_size = 0.01)
+road = step_road
+tyre = flx.ContinousTyre(initial_x=initial_x,
+                          boundary_condition_file= matlab_file_path,
+                          mass=unsprung_mass,
+                          road=road,
+                          free_radius=tyre_radius,
+                          x_speed=forward_speed,
+                          y_speed=0,
+                          rigid_ring_nat_freq_hz=10,
+                          rigid_ring_damping_ratio= 0.1,
                         )
 q_car = flx.SprungMass(tyre_inst=tyre,
                        mass = sprung_mass,

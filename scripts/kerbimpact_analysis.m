@@ -41,7 +41,7 @@ for i = 1:4
 end
 linkAx()
 xlim ([-2*free_radius , 5*free_radius])
-legend ([total_force_plot, fz_line_obj, suspension_force_plot, spring_height_line_obj ],...
-    'sim_fz', 'experiment_fz', 'sim_suspension', 'experiment_suspension')
-
+lgd =legend ([total_force_plot, fz_line_obj, suspension_force_plot, spring_height_line_obj ],...
+    'sim\_fz', 'experiment\_fz', 'sim\_suspension', 'experiment\_suspension');
+fontsize(lgd, 12, "points")
 
