@@ -1,5 +1,7 @@
 import numpy as np
 import time
+import matplotlib
+matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import physics_engine as phsx
@@ -98,12 +100,14 @@ class Road:
         road.make_smart()
         return road
     @staticmethod
-    def make_road_from_file(file_name, step_size=0.001):
+    def make_road_from_file(file_name, step_size=0.001, flip : bool= False):
         with open(file_name) as f:
             point_list = [np.double(line.split(",")) for line in f]
         point_list.sort(key= lambda p:p[0])
         point_list = np.array(point_list)
         x , y = Road.under_sample(x = point_list[: , 0] , z=point_list[: , 2] , x_step=step_size)
+        if flip:
+            y = np.flip(y)
         road = Road(length=x[-1], high_res=False)
         road.x = x
         road.y = y
@@ -183,9 +187,11 @@ class Road:
             self.end_node:Road.Node = start_node 
             self.peak_node:Road.Node = start_node
             self.type:CurvatureType
+            self.fit_curvature = None
+            self.fit_centre:Vector2 = None
             if self.start_node.curvature < 0 :
                 self.type = CurvatureType.BUMP
-            elif self.start_node.curvature > 0:
+            elif self.start_node.curvature > 1/0.7:
                 self.type = CurvatureType.HOLE
             else:
                 self.type = CurvatureType.FLAT
@@ -197,22 +203,8 @@ class Road:
                 self.end_node = self.end_node.next
                 self.end_node.section = self
                 if self.end_node.next is None:
-                    break
-            if self.type is CurvatureType.FLAT == 0:
-                self.fit_curvature = 0
-                self.fit_centre = (self.start_node.position + self.end_node.position)/2
-            else:
-                try:
-                    self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.prev.position,
-                                                                p0= self.peak_node.position,
-                                                                p2= self.end_node.next.position)
-                    self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
-                # error cases: first and last nodes
-                except:
-                    self.type = CurvatureType.FLAT
-                    self.fit_centre = (self.start_node.position + self.end_node.position)/2
-                    self.fit_curvature = 0  
-            
+                    break      
+        
         def make_next(self):
             if self.next is not None:
                 return self.next    
@@ -229,6 +221,20 @@ class Road:
                         n = n.next
                         self.next = None
                         return self
+                if self.type is CurvatureType.FLAT == 0:
+                    self.fit_curvature = 0
+                    self.fit_centre = (self.start_node.position + self.end_node.position)/2
+                else:
+                    try:
+                        self.fit_curvature, normal = ut.get_equivalent_circle(p1=self.start_node.prev.position,
+                                                                    p0= self.peak_node.position,
+                                                                    p2= self.end_node.next.position)
+                        self.fit_centre = self.peak_node.position - (1/self.fit_curvature)*normal   
+                    # error cases: first and last nodes
+                    except:
+                        self.type = CurvatureType.FLAT
+                        self.fit_centre = (self.start_node.position + self.end_node.position)/2
+                        self.fit_curvature = 0   
                 return self.next
             else:
                 return None
@@ -253,16 +259,29 @@ class Road:
                 self.prev.end_node = self.start_node
                 self.prev.next = self.next
         def draw_fit_circle(self):
-            if self.type is CurvatureType.BUMP:
-                fit_circle = patches.Circle(self.fit_centre,
-                                            1/self.fit_curvature,
-                                            fill=False, color="purple", linewidth = 3)
-                phsx.DynamicObject.add_patch(fit_circle)
-            else :
+            if self.type is CurvatureType.FLAT :
                 phsx.DynamicObject.plot((self.start_node.position.x, self.end_node.position.x),
                                         (self.start_node.position.y, self.end_node.position.y),
-                                        color = "purple", linewidth = 3)
+                                        color = "black", linewidth = 3)
                                         
+            else: 
+                start_angle = np.rad2deg(np.arctan2(self.start_node.prev.position.y - self.fit_centre.y,
+                                         self.start_node.prev.position.x - self.fit_centre.x))
+                end_angle = np.rad2deg(np.arctan2(self.end_node.next.position.y - self.fit_centre.y,
+                                         self.end_node.next.position.x - self.fit_centre.x))
+                if self.type is CurvatureType.BUMP:
+                    fit_arc = patches.Arc(xy=self.fit_centre,
+                                        width=2/self.fit_curvature,
+                                        height=2/self.fit_curvature,
+                                        theta1= end_angle, theta2 = start_angle,
+                                        color="purple", linewidth = 3)
+                else:
+                    fit_arc = patches.Arc(xy=self.fit_centre,
+                                        width=2/self.fit_curvature,
+                                        height=2/self.fit_curvature,
+                                        theta1= start_angle, theta2 = end_angle,
+                                        color="orange", linewidth = 3)
+                phsx.DynamicObject.add_patch(fit_arc)
         def get_contact_point(self, tyre):
             if self.type is CurvatureType.FLAT or self.type is CurvatureType.HOLE:
                 t = (tyre.states.position - self.start_node.position).dot(
@@ -529,13 +548,13 @@ class ContinousTyre(phsx.RigidBody):
                                     y= self.centre_node().position.y,
                                     marker="x", color="green",markersize=5)
             
-            # x = [self.tyre.states.position.x +\
-            #       (self.tyre.free_radius - w)*np.cos(t) for
-            #         w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
-            # y = [self.tyre.states.position.y +\
-            #       (self.tyre.free_radius - w)*np.sin(t) for
-            #         w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
-            # phsx.DynamicObject.plot(x , y , color = "green")
+            x = [self.tyre.states.position.x +\
+                  (self.tyre.free_radius - w)*np.cos(t) for
+                    w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
+            y = [self.tyre.states.position.y +\
+                  (self.tyre.free_radius - w)*np.sin(t) for
+                    w,t in zip(self.whole_deformation_profile, self.whole_theta_profile)]
+            phsx.DynamicObject.plot(x , y , color = "green")
         def set_equivalent_circles(self):
             fore_point = self.centre_node().section.end_node.next.position
             aft_point = self.centre_node().section.start_node.prev.position

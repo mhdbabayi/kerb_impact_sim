@@ -3,6 +3,8 @@ from enum import Enum
 from euclid3 import Vector2
 from dataclasses import dataclass
 from scipy import io
+import matplotlib
+matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 class ConstraintType(Enum):

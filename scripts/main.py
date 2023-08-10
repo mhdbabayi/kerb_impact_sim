@@ -4,12 +4,13 @@ import time
 import os, sys
 from pathlib import Path
 import numpy as np
+import matplotlib
+matplotlib.use("Qt5Agg")
 from matplotlib import pyplot as plt
 from euclid3 import Vector2
 os.system("clear")
 from scipy import io
 # constants and initial values
-graphic_objects = {"static":[], "dynamic":[]}
 DEBUG = sys.gettrace()
 repo_root_path = Path(__file__).resolve().parent.parent
 matlab_file_path = Path.joinpath(repo_root_path, "data", "beta_5.mat") 
@@ -19,14 +20,15 @@ forward_speed = forward_speed_kph/3.6
 tyre_radius = 0.788/2
 if DEBUG:
     draw_frequency = 1
-    initial_x = 9.5
+    initial_x = 8.5
 else:
     draw_frequency = 10
-    initial_x = 4
+    initial_x = 8.5
 sprung_mass = 700
 unsprung_mass = 50
 # defining sim objects, all moving objects inherit from rigid body
-step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"), step_size=0.005)
+step_road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "mueavi_step.asc"),
+                                         step_size=0.005, flip=True)
 fnt_road :flx.Road = flx.Road.make_road_from_file(Path.joinpath(repo_root_path, "data", "FinsAndThings_2d.asc"),
                                                   step_size = 0.005)
 road = fnt_road
