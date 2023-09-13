@@ -25,8 +25,8 @@ close all
 syms rho Dc R kt real positive
 syms phi lambda lambdaT C0 C1 C2 real
 constants = struct ('R' , 0.778/2, 'penetration', 0.1,...
-    'rho', 1, 'kt', 1.4567e8,'EI', 13.9,'kr',1.5e6,...
-    'C0', 0.01, 'C1', 0.000001, 'C2', 0.0001);
+    'rho', 0.6, 'kt', 1.4567e8,'EI', 13.9,'kr',1.5e6,...
+    'C0', 0, 'C1', 0.001, 'C2', 0.0001, 'thread_thickness', 0.05);
 
 constants.D = constants.R + constants.rho - constants.penetration;
 constants.lambda = sqrt(constants.kr*constants.R^4/constants.EI + 1);
@@ -53,24 +53,25 @@ general_solution = C1*cosh(alpha*phi)*cos(beta*phi) + ...
 particular_solution = A * phi^4 + B*phi^2 + C0;
 diff_eq_operator = @(sol)diff(sol , phi , 5) + 2*diff(sol , phi , 3) + lambda*(diff(sol , phi));
 t = general_solution + particular_solution;
-final_radius = circle_taylor -t;
+final_radius = circle_taylor +t - constants.thread_thickness;
 belt_deflection = circle_taylor -t;
 bc_1 = subs(diff(belt_deflection , phi , 2), phi , 0);
 T_f = matlabFunction(eval(subs(t ,[C0 , C1 , C2 , Dc , lambda, lambdaT, rho],...
     {constants.C0 , constants.C1 , constants.C2 , constants.D, constants.lambda, constants.lambdaT , constants.rho})));
-final_radius_function = matlabFunction(subs(final_radius,[C0, C1, C2, Dc, lambdaT, lambda, rho],...
-                                 {constants.C0,constants.C1, constants.C2, constants.D, constants.lambdaT, constants.lambda, constants.rho}));
+final_radius_function = matlabFunction(my_eval(final_radius));
 close all
 set(0 , 'DefaultLineLineWidth' , 2)
 theta = linspace(-pi , pi , 361);
 terrain_x = constants.rho * cos(theta);
 terrain_y = constants.rho*sin(theta) - constants.D;
+
+subplot(2 , 1 , 1);
 plot(terrain_x, terrain_y);
 tyre_x = constants.R*cos(theta);
 tyre_y = constants.R*sin(theta);
 hold on
 plot(tyre_x, tyre_y);
-daspect([1 1 1])
+%daspect([1 1 1])
 fitted_circle_R = eval(subs(circle_taylor , [Dc, rho , phi], {constants.D , constants.rho , constants.phi}));
 fitted_circle_y = -fitted_circle_R .* cos(constants.phi);
 fitted_circle_x = fitted_circle_R .* sin(constants.phi);
@@ -79,6 +80,15 @@ deflected_R = final_radius_function(constants.phi);
 deflected_x = deflected_R .* sin(constants.phi);
 deflected_y = -deflected_R .* cos(constants.phi);               
 plot(deflected_x , deflected_y)
+
+subplot(2 , 1, 2)
+for pen = 0.001:0.01:0.1
+    constants.D = constants.R + constants.rho - pen;
+    plot(rad2deg(constants.phi) , eval(subs(t,[C0, C1, C2, Dc, lambda, lambdaT, phi, rho],...
+        {constants.C0, constants.C1, constants.C2, constants.D, constants.lambda, constants.lambdaT, constants.phi, constants.rho})))
+    hold on
+end
+legend
 %%
 plot(terrain_x , terrain_y);
 hold on
